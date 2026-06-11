@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>eePEST-AI | 机理融合分子模拟 · 右侧交互控制台</title>
+    <!-- 引入 Three.js 核心库及扩展 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Poppins', sans-serif;
+            background-color: #050b14;
+            overflow: hidden;
+            height: 100vh;
+            color: #eef5ff;
+        }
+
+        /* 3D 画布全屏 */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: block;
+        }
+
+        /* 右侧交互面板 —— 完全不遮挡中心分子主体，悬浮于右侧边缘 */
+        .right-panel {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            bottom: 20px;
+            width: 360px;
+            background: rgba(6, 16, 28, 0.75);
+            backdrop-filter: blur(16px);
+            border-radius: 28px;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(0, 255, 255, 0.2) inset;
+            z-index: 30;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 1.2rem 1.2rem 1.5rem;
+            transition: box-shadow 0.2s ease, border-color 0.2s;
+            scrollbar-width: thin;
+        }
+        .right-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+        .right-panel::-webkit-scrollbar-track {
+            background: #011a2a;
+            border-radius: 10px;
+        }
+        .right-panel::-webkit-scrollbar-thumb {
+            background: cyan;
+            border-radius: 10px;
+        }
+        /* 脉冲光效 —— 点击时产生创新视觉反馈 */
+        .right-panel.pulse-glow {
+            border-color: #0effff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), 0 0 8px cyan inset;
+            transition: 0.1s;
+        }
+
+        /* 头部区域精简但保持科技感 */
+        .panel-header {
+            text-align: center;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        .panel-header h1 {
+            font-size: 1.7rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, #3eff9e, #0af0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .panel-header .sub {
+            font-size: 0.7rem;
+            color: #bbf0ff;
+            opacity: 0.9;
+        }
+        .badge-mini {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .badge-mini span {
+            background: rgba(0, 255, 255, 0.18);
+            font-size: 0.6rem;
+            padding: 2px 8px;
+            border-radius: 30px;
+            border: 1px solid cyan;
+            color: #b6ffff;
+        }
+
+        /* 核心技术网格 (紧凑右侧) */
+        .tech-mini-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+            margin: 1rem 0 1.2rem;
+        }
+        .tech-mini-card {
+            background: rgba(10, 20, 35, 0.6);
+            border-radius: 1rem;
+            padding: 0.6rem;
+            text-align: center;
+            border: 1px solid rgba(0, 200, 255, 0.3);
+            transition: all 0.2s;
+        }
+        .tech-mini-card i {
+            font-size: 1.2rem;
+            color: #0af;
+        }
+        .tech-mini-card h4 {
+            font-size: 0.75rem;
+            margin: 5px 0 2px;
+        }
+        .tech-mini-card p {
+            font-size: 0.6rem;
+            color: #ccf4ff;
+        }
+
+        /* 岗位卡片区域 (最右侧核心可点击元素) */
+        .jobs-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0.8rem 0 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 3px solid cyan;
+            padding-left: 10px;
+        }
+        .cards-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 1.2rem;
+        }
+        .job-card {
+            background: rgba(8, 18, 32, 0.9);
+            backdrop-filter: blur(8px);
+            border-radius: 1.2rem;
+            padding: 0.8rem 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            text-align: center;
+            border: 1px solid rgba(0, 180, 240, 0.5);
+        }
+        .job-card i {
+            font-size: 1.5rem;
+            color: #2effb0;
+            margin-bottom: 5px;
+        }
+        .job-card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        .job-card p {
+            font-size: 0.65rem;
+            color: #b0e0ff;
+            margin-bottom: 4px;
+        }
+        .job-card .click-hint {
+            font-size: 0.55rem;
+            color: #0af;
+            opacity: 0.9;
+        }
+        .job-card:hover {
+            transform: translateY(-4px);
+            border-color: #0effb0;
+            box-shadow: 0 0 12px rgba(0, 255, 200, 0.4);
+        }
+        .job-card.active {
+            border: 2px solid cyan;
+            background: rgba(0, 60, 80, 0.8);
+            box-shadow: 0 0 12px cyan;
+        }
+
+        /* 动态信息面板 */
+        .info-panel {
+            background: rgba(0, 10, 22, 0.7);
+            backdrop-filter: blur(12px);
+            border-radius: 1.2rem;
+            padding: 0.8rem 1rem;
+            border-left: 4px solid #0af;
+            margin-top: 0.8rem;
+            transition: 0.2s;
+        }
+        .info-panel h4 {
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+            color: #9effff;
+        }
+        .info-panel p {
+            font-size: 0.75rem;
+            line-height: 1.35;
+            color: #e0f0ff;
+        }
+        .tech-tag {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .info-tag {
+            background: rgba(0, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.6rem;
+        }
+        .footer-note {
+            font-size: 0.55rem;
+            text-align: center;
+            margin-top: 1rem;
+            opacity: 0.6;
+            border-top: 1px solid rgba(0,255,255,0.2);
+            padding-top: 0.8rem;
+        }
+        .control-hint {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(8px);
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.65rem;
+            color: cyan;
+            z-index: 28;
+            pointer-events: none;
+            font-family: monospace;
+        }
+        @media (max-width: 750px) {
+            .right-panel { width: 280px; right: 10px; top: 10px; bottom: 10px; padding: 0.8rem; }
+            .cards-container { gap: 8px; }
+            .job-card { padding: 0.5rem 0.3rem; }
+            .job-card h3 { font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<!-- 右侧交互控制台：卡片在右侧，完全不遮挡中心分子 -->
+<div class="right-panel" id="rightPanel">
+    <div class="panel-header">
+        <h1>⚛️ eePEST-AI</h1>
+        <div class="sub">机理融合 · 分子模拟新范式</div>
+        <div class="badge-mini">
+            <span>AI+生物医药</span><span>新材料赛道</span><span>底层算法</span><span>跨尺度模拟</span>
+        </div>
+    </div>
+
+    <!-- 核心技术精粹 (紧凑但丰富) -->
+    <div class="tech-mini-grid">
+        <div class="tech-mini-card"><i class="fas fa-robot"></i><h4>AI机理融合</h4><p>神经势能面+第一性原理</p></div>
+        <div class="tech-mini-card"><i class="fas fa-dna"></i><h4>增强采样</h4><p>元动力学+强化学习</p></div>
+        <div class="tech-mini-card"><i class="fas fa-cube"></i><h4>多尺度建模</h4><p>QM/MM 无缝衔接</p></div>
+        <div class="tech-mini-card"><i class="fas fa-chart-line"></i><h4>商业落地</h4><p>加速药物/材料研发</p></div>
+    </div>
+
+    <!-- 核心交互区：可点击的岗位卡片 (放最右侧显著位置) -->
+    <div class="jobs-title"><i class="fas fa-magic"></i> 硬核岗位 · 点击触发原子奇点</div>
+    <div class="cards-container" id="jobCardsContainer">
+        <div class="job-card" data-job="algo"><i class="fas fa-code"></i><h3>算法工程师</h3><p>几何深度学习 · 分子表示</p><div class="click-hint"><i class="fas fa-hand-pointer"></i> 粘贴至原子</div></div>
+        <div class="job-card" data-job="ai-pharma"><i class="fas fa-flask"></i><h3>AI制药/生物医药</h3><p>靶点识别 · 虚拟筛选</p><div class="click-hint"><i class="fas fa-hand-pointer"></i> 粘贴至原子</div></div>
+        <div class="job-card" data-job="new-materials"><i class="fas fa-gem"></i><h3>新材料研发</h3><p>固态电解质 · 催化材料</p><div class="click-hint"><i class="fas fa-hand-pointer"></i> 粘贴至原子</div></div>
+        <div class="job-card" data-job="research"><i class="fas fa-microscope"></i><h3>科研岗 (博士后)</h3><p>理论计算化学 · AI4S</p><div class="click-hint"><i class="fas fa-hand-pointer"></i> 粘贴至原子</div></div>
+    </div>
+
+    <!-- 信息展示面板 (展现职位详情及交互反馈) -->
+    <div class="info-panel" id="dynamicInfoPanel">
+        <h4><i class="fas fa-satellite-dish"></i> 原子交互控制台</h4>
+        <p>点击右侧任意岗位卡片 → 分子模型的随机原子上会“粘贴”出炫酷特效光环 + 动态标签，每次点击目标原子与视觉风格都奇特变化！右侧面板将同步职位硬核价值。</p>
+        <div class="tech-tag"><span class="info-tag">#点击原子奇点</span><span class="info-tag">#AI驱动特效</span><span class="info-tag">#机理融合</span></div>
+    </div>
+    <div class="footer-note">
+        <i class="fas fa-mouse-pointer"></i> 鼠标拖拽/缩放 3D 分子 | 每次点击卡片 → 随机原子爆发能量
+    </div>
+</div>
+<div class="control-hint"><i class="fas fa-arrows-alt"></i> 自由旋转/缩放 | 右侧卡片操控原子特效</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // --- 场景初始化 (全屏3D)---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050b14);
+    scene.fog = new THREE.FogExp2(0x050b14, 0.007);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(5.5, 3.5, 7.2);
+    camera.lookAt(0, 0.2, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    labelRenderer.domElement.style.left = '0px';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    labelRenderer.domElement.style.zIndex = '10';
+    container.appendChild(labelRenderer.domElement);
+
+    // 轨道控制
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.autoRotate = false;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 1.2;
+    controls.rotateSpeed = 1.0;
+    controls.target.set(0, 0.2, 0);
+
+    // 灯光
+    const ambientLight = new THREE.AmbientLight(0x111122);
+    scene.add(ambientLight);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    mainLight.position.set(3, 5, 2);
+    mainLight.castShadow = true;
+    scene.add(mainLight);
+    const backLight = new THREE.PointLight(0x2266ff, 0.6);
+    backLight.position.set(-2, 1.5, -3);
+    scene.add(backLight);
+    const fillLight = new THREE.PointLight(0x33ccaa, 0.5);
+    fillLight.position.set(1.5, 2, 2);
+    scene.add(fillLight);
+    const rimLight = new THREE.PointLight(0xff66cc, 0.4);
+    rimLight.position.set(1.2, 1.8, -2.2);
+    scene.add(rimLight);
+    
+    // 星空粒子背景
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 2000;
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+        starPositions[i*3] = (Math.random() - 0.5) * 220;
+        starPositions[i*3+1] = (Math.random() - 0.5) * 110;
+        starPositions[i*3+2] = (Math.random() - 0.5) * 100 - 50;
+    }
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMaterial = new THREE.PointsMaterial({ color: 0x88aaff, size: 0.07, transparent: true, opacity: 0.6 });
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+    
+    // --- 核心分子模型 (中心+外围原子)---
+    const moleculeGroup = new THREE.Group();
+    const coreMat = new THREE.MeshStandardMaterial({ color: 0x3cc7ff, emissive: 0x1155aa, roughness: 0.25, metalness: 0.85 });
+    const ligandMat = new THREE.MeshStandardMaterial({ color: 0x88ffaa, emissive: 0x226622, roughness: 0.2 });
+    
+    const coreAtom = new THREE.Mesh(new THREE.SphereGeometry(0.58, 72, 72), coreMat);
+    moleculeGroup.add(coreAtom);
+    
+    const ligandAtoms = [];
+    const radius = 1.55;
+    const angles = [0, 60, 120, 180, 240, 300].map(deg => deg * Math.PI / 180);
+    angles.forEach((angle, idx) => {
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = (idx % 2 === 0 ? 0.28 : -0.22);
+        const pos = new THREE.Vector3(x, y, z);
+        const atom = new THREE.Mesh(new THREE.SphereGeometry(0.42, 48, 48), ligandMat.clone());
+        atom.position.copy(pos);
+        moleculeGroup.add(atom);
+        ligandAtoms.push(atom);
+        
+        // 化学键
+        const start = new THREE.Vector3(0, 0, 0);
+        const end = pos;
+        const direction = new THREE.Vector3().subVectors(end, start);
+        const length = direction.length();
+        const cylinderGeo = new THREE.CylinderGeometry(0.12, 0.12, length, 10);
+        const cylinderMatC = new THREE.MeshStandardMaterial({ color: 0x66ccff, emissive: 0x2266aa });
+        const cylinder = new THREE.Mesh(cylinderGeo, cylinderMatC);
+        cylinder.position.copy(start.clone().add(end).multiplyScalar(0.5));
+        cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), direction.clone().normalize());
+        moleculeGroup.add(cylinder);
+    });
+    
+    // 装饰光环 & 电子云
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.32, 0.05, 64, 180), new THREE.MeshStandardMaterial({ color: 0x0affff, emissive: 0x00aaaa }));
+    ring1.rotation.x = Math.PI / 2;
+    moleculeGroup.add(ring1);
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.72, 0.04, 64, 180), new THREE.MeshStandardMaterial({ color: 0xff66aa, emissive: 0x551133 }));
+    ring2.rotation.z = Math.PI / 3;
+    ring2.rotation.x = Math.PI / 3;
+    moleculeGroup.add(ring2);
+    
+    const particleCount = 1300;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = 2.0 + Math.random() * 0.9;
+        particlePositions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+        particlePositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta) * 0.8;
+        particlePositions[i*3+2] = r * Math.cos(phi);
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    const particleMat = new THREE.PointsMaterial({ color: 0x44ddff, size: 0.045, transparent: true, blending: THREE.AdditiveBlending });
+    const glowParticles = new THREE.Points(particleGeo, particleMat);
+    moleculeGroup.add(glowParticles);
+    
+    scene.add(moleculeGroup);
+    
+    // 外围漂浮粒子云
+    const cloudParticleCount = 2200;
+    const cloudGeo = new THREE.BufferGeometry();
+    const cloudPositions = [];
+    for (let i = 0; i < cloudParticleCount; i++) {
+        cloudPositions.push((Math.random() - 0.5) * 15);
+        cloudPositions.push((Math.random() - 0.5) * 10);
+        cloudPositions.push((Math.random() - 0.5) * 13 - 4);
+    }
+    cloudGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cloudPositions), 3));
+    const cloudMatPoints = new THREE.PointsMaterial({ color: 0x88ccff, size: 0.065, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
+    const cloudPoints = new THREE.Points(cloudGeo, cloudMatPoints);
+    scene.add(cloudPoints);
+    
+    // 流光线条组
+    const lineGroup = new THREE.Group();
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x33ccff });
+    for (let i = 0; i < 46; i++) {
+        const rad = (i / 46) * Math.PI * 2;
+        const x1 = Math.cos(rad) * 2.5;
+        const z1 = Math.sin(rad) * 2.5;
+        const x2 = Math.cos(rad + 0.7) * 3.1;
+        const z2 = Math.sin(rad + 0.7) * 3.1;
+        const points = [new THREE.Vector3(x1, Math.sin(rad)*0.8, z1), new THREE.Vector3(x2, Math.sin(rad+1.0)*0.6, z2)];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geometry, lineMat);
+        lineGroup.add(line);
+    }
+    scene.add(lineGroup);
+    
+    // CSS2D 科技标签
+    const labelDiv = document.createElement('div');
+    labelDiv.textContent = '⚡ AI 增强力场 · 点击原子交互 ⚛️';
+    labelDiv.style.color = '#0effff';
+    labelDiv.style.fontSize = '10px';
+    labelDiv.style.background = 'rgba(0,0,0,0.6)';
+    labelDiv.style.padding = '3px 10px';
+    labelDiv.style.borderRadius = '30px';
+    labelDiv.style.border = '1px solid cyan';
+    const labelObj = new CSS2DObject(labelDiv);
+    labelObj.position.set(2.2, 1.6, 1.7);
+    moleculeGroup.add(labelObj);
+    
+    // 动画循环
+    let time = 0;
+    function animate() {
+        requestAnimationFrame(animate);
+        time += 0.012;
+        moleculeGroup.rotation.y = time * 0.38;
+        moleculeGroup.rotation.x = Math.sin(time * 0.4) * 0.07;
+        moleculeGroup.rotation.z = Math.cos(time * 0.3) * 0.05;
+        ring1.rotation.z += 0.012;
+        ring2.rotation.x += 0.009;
+        glowParticles.rotation.y += 0.009;
+        stars.rotation.y += 0.0004;
+        cloudPoints.rotation.y -= 0.0002;
+        lineGroup.rotation.y = time * 0.12;
+        controls.update();
+        renderer.render(scene, camera);
+        labelRenderer.render(scene, camera);
+    }
+    animate();
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    
+    // 动态灯光呼吸
+    setInterval(() => {
+        rimLight.intensity = 0.4 + Math.random() * 0.35;
+        backLight.intensity = 0.5 + Math.random() * 0.3;
+    }, 1600);
+    
+    // ========== 创新原子特效系统：点击卡片 → 随机原子 + 炫酷特效 + 右侧面板脉冲 ==========
+    let activeEffectGroup = null;
+    let activeTimeout = null;
+    const rightPanel = document.getElementById('rightPanel');
+    
+    const jobStyleMap = {
+        algo: { name: "算法工程师", color: 0x3cff9e, glowColor: 0x3cff9e, tag: "⚙️ ALGO" },
+        "ai-pharma": { name: "AI制药", color: 0xff66cc, glowColor: 0xff66cc, tag: "💊 Pharma" },
+        "new-materials": { name: "新材料", color: 0xffaa44, glowColor: 0xffaa44, tag: "🧪 Material" },
+        research: { name: "科研岗", color: 0xaa66ff, glowColor: 0xaa66ff, tag: "🔬 Research" }
+    };
+    
+    function clearAtomEffect() {
+        if (activeEffectGroup) {
+            moleculeGroup.remove(activeEffectGroup);
+            if (activeEffectGroup.userData && activeEffectGroup.userData.originalMaterial) {
+                const { atom, originalEmissive, originalColor } = activeEffectGroup.userData;
+                if (atom && atom.material) {
+                    atom.material.emissive.setHex(originalEmissive);
+                    atom.material.color.setHex(originalColor);
+                }
+            }
+            if (activeEffectGroup.userData && activeEffectGroup.userData.cssLabel) {
+                moleculeGroup.remove(activeEffectGroup.userData.cssLabel);
+            }
+            activeEffectGroup = null;
+        }
+        if (activeTimeout) clearTimeout(activeTimeout);
+    }
+    
+    function attachEffectToAtom(atom, jobKey) {
+        clearAtomEffect();
+        const style = jobStyleMap[jobKey] || jobStyleMap.algo;
+        const originalEmissive = atom.material.emissive.getHex();
+        const originalColor = atom.material.color.getHex();
+        atom.material.emissive.setHex(style.color);
+        atom.material.color.setHex(style.color);
+        
+        const effectGroup = new THREE.Group();
+        effectGroup.position.copy(atom.position);
+        
+        // 光环
+        const ringEffect = new THREE.Mesh(
+            new THREE.TorusGeometry(0.68, 0.06, 32, 60),
+            new THREE.MeshStandardMaterial({ color: style.color, emissive: style.glowColor, emissiveIntensity: 0.9 })
+        );
+        ringEffect.rotation.x = Math.PI / 2;
+        effectGroup.add(ringEffect);
+        
+        // 内层光晕
+        const glowSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.58, 24, 24),
+            new THREE.MeshStandardMaterial({ color: style.color, emissive: style.glowColor, transparent: true, opacity: 0.55 })
+        );
+        effectGroup.add(glowSphere);
+        
+        // 粒子环
+        const particleRingCount = 32;
+        const ringPositions = [];
+        for (let i = 0; i < particleRingCount; i++) {
+            const angle = (i / particleRingCount) * Math.PI * 2;
+            const rad = 0.88;
+            ringPositions.push(Math.cos(angle) * rad, Math.sin(angle) * rad * 0.7, Math.sin(angle) * rad * 0.5);
+        }
+        const ringParticleGeo = new THREE.BufferGeometry();
+        ringParticleGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ringPositions), 3));
+        const ringParticleMat = new THREE.PointsMaterial({ color: style.color, size: 0.06, blending: THREE.AdditiveBlending });
+        const ringParticles = new THREE.Points(ringParticleGeo, ringParticleMat);
+        effectGroup.add(ringParticles);
+        
+        moleculeGroup.add(effectGroup);
+        
+        // CSS2D 漂浮标签
+        const tagDiv = document.createElement('div');
+        tagDiv.textContent = `✨ ${style.tag} 已粘贴 ✨`;
+        tagDiv.style.color = '#fff';
+        tagDiv.style.fontSize = '11px';
+        tagDiv.style.fontWeight = 'bold';
+        tagDiv.style.background = `rgba(0,0,0,0.8)`;
+        tagDiv.style.border = `1.5px solid ${new THREE.Color(style.color).getStyle()}`;
+        tagDiv.style.borderRadius = '30px';
+        tagDiv.style.padding = '3px 10px';
+        tagDiv.style.whiteSpace = 'nowrap';
+        tagDiv.style.fontFamily = 'monospace';
+        tagDiv.style.boxShadow = `0 0 12px ${new THREE.Color(style.color).getStyle()}`;
+        const cssLabel = new CSS2DObject(tagDiv);
+        cssLabel.position.copy(atom.position);
+        cssLabel.position.y += 0.95;
+        moleculeGroup.add(cssLabel);
+        
+        effectGroup.userData = {
+            atom, originalEmissive, originalColor,
+            cssLabel: cssLabel,
+            ringParticles
+        };
+        
+        let animFrame;
+        let startTime = performance.now();
+        function updateEffect() {
+            if (!effectGroup.parent) return;
+            const elapsed = (performance.now() - startTime) / 1000;
+            if (elapsed > 2.3) {
+                cancelAnimationFrame(animFrame);
+                if (effectGroup.parent) moleculeGroup.remove(effectGroup);
+                if (cssLabel.parent) moleculeGroup.remove(cssLabel);
+                if (atom && atom.material) {
+                    atom.material.emissive.setHex(originalEmissive);
+                    atom.material.color.setHex(originalColor);
+                }
+                if (activeEffectGroup === effectGroup) activeEffectGroup = null;
+                return;
+            }
+            if (ringEffect) ringEffect.rotation.z += 0.1;
+            if (ringParticles) ringParticles.rotation.y += 0.07;
+            if (cssLabel) {
+                cssLabel.position.y = atom.position.y + 0.95 + Math.sin(elapsed * 10) * 0.05;
+            }
+            animFrame = requestAnimationFrame(updateEffect);
+        }
+        updateEffect();
+        activeEffectGroup = effectGroup;
+        activeTimeout = setTimeout(() => {
+            if (effectGroup.parent) moleculeGroup.remove(effectGroup);
+            if (cssLabel.parent) moleculeGroup.remove(cssLabel);
+            if (atom && atom.material) {
+                atom.material.emissive.setHex(originalEmissive);
+                atom.material.color.setHex(originalColor);
+            }
+            if (activeEffectGroup === effectGroup) activeEffectGroup = null;
+        }, 2500);
+    }
+    
+    function getRandomLigandAtom() {
+        if (!ligandAtoms.length) return null;
+        return ligandAtoms[Math.floor(Math.random() * ligandAtoms.length)];
+    }
+    
+    // 卡片点击 + 信息更新 + 右侧面板脉冲创新特效
+    const jobCards = document.querySelectorAll('.job-card');
+    const infoPanel = document.getElementById('dynamicInfoPanel');
+    const jobDetails = {
+        algo: { title: "🤖 算法工程师 · AI+分子模拟核心岗", desc: "负责深度学习力场、几何图神经网络，构建新一代分子模拟引擎，融合量子化学数据。", tags: ["#PyTorch Geometric", "#SchNet", "#等变网络", "#高性能计算"] },
+        "ai-pharma": { title: "💊 AI制药 / 生物医药研发科学家", desc: "利用eePEST-AI加速药物靶点发现、先导优化及ADMET预测，推动自由能微扰落地。", tags: ["#虚拟筛选", "#FEP+", "#蛋白-配体", "#临床前"] },
+        "new-materials": { title: "🧪 新材料研发工程师", desc: "设计固态电解质、催化材料及二维材料，通过AI势函数加速分子动力学模拟。", tags: ["#固态电池", "#MOF/COF", "#高通量计算", "#相图预测"] },
+        research: { title: "📖 科研岗 (博士后/研究员) · 理论创新", desc: "探索多尺度模拟、增强采样算法及量子经典融合模型，发展AI4S前沿框架。", tags: ["#量子化学", "#统计力学", "#Nature/Science愿景", "#跨学科导师"] }
+    };
+    
+    function setActiveCard(active) {
+        jobCards.forEach(c => c.classList.remove('active'));
+        active.classList.add('active');
+    }
+    
+    function updateInfoPanel(jobKey) {
+        const data = jobDetails[jobKey];
+        if (!data) return;
+        infoPanel.style.opacity = '0';
+        setTimeout(() => {
+            infoPanel.innerHTML = `
+                <h4><i class="fas fa-satellite-dish"></i> ${data.title}</h4>
+                <p>${data.desc}</p>
+                <div class="tech-tag">${data.tags.map(t => `<span class="info-tag">${t}</span>`).join('')}</div>
+                <div style="margin-top:8px; font-size:0.7rem; color:#9cf;"><i class="fas fa-atom"></i> 原子奇点已激活！职位能量“粘贴”至随机分子球体 ✨</div>
+            `;
+            infoPanel.style.opacity = '1';
+        }, 80);
+    }
+    
+    // 右侧面板脉冲特效 (创新)
+    function pulseRightPanel() {
+        rightPanel.classList.add('pulse-glow');
+        setTimeout(() => rightPanel.classList.remove('pulse-glow'), 300);
+    }
+    
+    jobCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const jobType = card.getAttribute('data-job');
+            if (jobType && jobDetails[jobType]) {
+                updateInfoPanel(jobType);
+                setActiveCard(card);
+                const targetAtom = getRandomLigandAtom();
+                if (targetAtom) attachEffectToAtom(targetAtom, jobType);
+                pulseRightPanel();  // 每次点击脉冲光效，创新价值体现
+                // 卡片点击动画
+                card.style.transform = 'scale(0.96)';
+                setTimeout(() => { if(card) card.style.transform = ''; }, 120);
+            } else {
+                infoPanel.innerHTML = `<h4><i class="fas fa-flask"></i> 前沿交叉领域</h4><p>点击卡片，分子模型上的原子会释放职位“粘贴”特效，每次位置随机视觉酷炫！</p>`;
+            }
+        });
+    });
+    
+    // 默认触发一次展示效果
+    setTimeout(() => {
+        const firstCard = document.querySelector('.job-card[data-job="algo"]');
+        if (firstCard && ligandAtoms.length) firstCard.click();
+    }, 600);
+</script>
+</body>
+</html>

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RBOS·超维度决策生态 | 哈工大 · 未来无人系统定义者</title>
+    <!-- 引入Three.js核心库及扩展 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <!-- Chart.js 轻量图表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- 字体与图标库 -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Orbitron', 'Segoe UI', monospace;
+            overflow: hidden;
+            background: #010410;
+            color: #eef5ff;
+        }
+
+        /* 3D画布容器 */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* UI 层 - 全息玻璃面板 */
+        .ui-overlay {
+            position: relative;
+            z-index: 20;
+            pointer-events: none;
+        }
+        .ui-content {
+            pointer-events: auto;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1.2rem 1.8rem;
+        }
+
+        /* 头部全息光效 */
+        .hologram-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            background: rgba(0, 5, 15, 0.55);
+            backdrop-filter: blur(15px);
+            border-radius: 2rem;
+            padding: 0.8rem 1.8rem;
+            border: 1px solid rgba(0, 255, 255, 0.6);
+            box-shadow: 0 0 25px rgba(0, 180, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .title h1 {
+            font-size: 2rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #fff, #0af, #b400ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -1px;
+            text-shadow: 0 0 10px rgba(0,200,255,0.5);
+        }
+        .title p {
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            color: #9effff;
+        }
+        .quantum-badge {
+            background: rgba(0, 255, 255, 0.15);
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            font-weight: 800;
+            font-size: 0.75rem;
+            border: 1px solid #0cf;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 8px cyan;
+        }
+
+        /* 主控制台：科幻三区块 */
+        .dashboard-grid {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin: 1.2rem 0;
+            justify-content: space-between;
+        }
+        .neuro-card {
+            background: rgba(8, 18, 35, 0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 2rem;
+            border: 1px solid rgba(0, 230, 250, 0.5);
+            padding: 1.2rem;
+            width: 330px;
+            transition: 0.2s;
+            box-shadow: 0 10px 30px -5px black;
+        }
+        .neuro-card:hover {
+            border-color: #ff44cc;
+            box-shadow: 0 0 25px rgba(0, 200, 255, 0.5);
+            transform: translateY(-3px);
+        }
+        .card-glow-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 4px solid #0cf;
+            padding-left: 14px;
+            letter-spacing: 1px;
+        }
+        .decision-log {
+            background: rgba(0, 0, 0, 0.65);
+            height: 170px;
+            overflow-y: auto;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            padding: 10px;
+            border-radius: 1rem;
+            border: 1px solid #0cf33a;
+        }
+        .log-entry {
+            border-bottom: 1px solid rgba(0, 255, 200, 0.3);
+            padding: 5px 0;
+            color: #aaffff;
+        }
+        .btn-neural {
+            background: rgba(0, 20, 45, 0.9);
+            border: 1.5px solid #0cf;
+            color: #0cf;
+            padding: 8px 18px;
+            border-radius: 60px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s cubic-bezier(0.2, 1.2, 0.8, 1);
+            font-family: 'Orbitron', monospace;
+            font-size: 0.75rem;
+            backdrop-filter: blur(8px);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-neural:hover {
+            background: #0cf;
+            color: #010f1f;
+            box-shadow: 0 0 20px cyan, 0 0 40px #00aaff;
+            transform: scale(1.02);
+        }
+        .glowing-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            font-family: monospace;
+            background: linear-gradient(45deg, cyan, magenta);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .radial-progress {
+            width: 100%;
+            margin-top: 8px;
+        }
+        canvas.canvas-metric {
+            max-height: 130px;
+            width: 100%;
+        }
+        .api-wave {
+            background: #021a2c;
+            border-radius: 20px;
+            padding: 8px 12px;
+            margin-top: 14px;
+            font-size: 0.7rem;
+            border-left: 3px solid #0cf;
+        }
+        /* 特效全息环 */
+        .pulse-ring {
+            position: fixed;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,255,255,0.6), transparent);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            animation: pulseAnim 0.7s ease-out forwards;
+            z-index: 9999;
+        }
+        @keyframes pulseAnim {
+            0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+        }
+        footer {
+            font-size: 0.65rem;
+            text-align: right;
+            opacity: 0.7;
+        }
+        @media (max-width: 900px) {
+            .dashboard-grid { justify-content: center; }
+            .neuro-card { width: 90%; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div class="ui-overlay">
+    <div class="ui-content">
+        <div class="hologram-header">
+            <div class="title">
+                <h1><i class="fas fa-microchip"></i> RBOS · 生态定义者 | 超维决策架构</h1>
+                <p>哈尔滨工业大学 · 异构无人系统集群 | 边缘智能体协作协议</p>
+            </div>
+            <div class="quantum-badge"><i class="fas fa-quantum"></i> 量子AI内核 · 实时感知</div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- 决策核心中枢 -->
+            <div class="neuro-card" style="flex:1.3;">
+                <div class="card-glow-title"><i class="fas fa-brain"></i> 神经决策池 · 超图推理</div>
+                <div class="decision-log" id="decisionLog">
+                    <div class="log-entry">⚡ 系统唤醒 · 超维生态协议 v3.7</div>
+                    <div class="log-entry">🔗 22个异构节点融合中 | 5G-TSN同步</div>
+                    <div class="log-entry">🌀 掩码自编码器模型加载完成</div>
+                </div>
+                <div class="btn-group" style="display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 8px;">
+                    <button class="btn-neural" id="quantumDecisionBtn"><i class="fas fa-robot"></i> 量子决策</button>
+                    <button class="btn-neural" id="swarmEcoBtn"><i class="fas fa-cloud-upload-alt"></i> 生态组网</button>
+                    <button class="btn-neural" id="hyperPathBtn"><i class="fas fa-route"></i> 超维规划</button>
+                    <button class="btn-neural" id="apiFusionBtn"><i class="fas fa-satellite-dish"></i> 全息API</button>
+                </div>
+                <div class="api-wave" id="apiLiveBox">
+                    <i class="fas fa-waveform"></i> <span id="apiDynamicMsg">⚡ 情报流待机 · 点击任意按钮注入现实决策数据</span>
+                </div>
+            </div>
+
+            <!-- 生态实时指标（圆形仪表替代文字） -->
+            <div class="neuro-card">
+                <div class="card-glow-title"><i class="fas fa-chart-network"></i> 生态融合指数</div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                    <div><span style="font-size:0.7rem;">任务吞吐量</span><div id="throughputVal" class="glowing-value">847</div></div>
+                    <div><span style="font-size:0.7rem;">协同熵减率</span><div id="synergyVal" class="glowing-value">96.2%</div></div>
+                </div>
+                <canvas id="fusionRadar" width="250" height="120" style="width:100%; height:120px; margin-top: 8px;"></canvas>
+                <div class="radial-progress" style="margin-top: 8px;">
+                    <div class="card-glow-title" style="font-size:0.8rem;"><i class="fas fa-drone"></i> 编队动态 | 活性链接</div>
+                    <div id="droneStatusViz" style="font-family: monospace; font-size:0.8rem;">🚁 先锋无人机 6 | ⚙️ 地面UGV 4 | 空域协同</div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <button class="btn-neural" id="activateSwarmBtn"><i class="fas fa-bolt"></i> 激活全息编队</button>
+                    <button class="btn-neural" id="resetUniverseBtn"><i class="fas fa-undo-alt"></i> 生态重置</button>
+                </div>
+            </div>
+        </div>
+        <footer><i class="fas fa-copyright"></i> RBOS · 定义无人设备决策未来 | 每⼀次交互驱动数字孪生演算 & 现实API共振</footer>
+    </div>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    
+    // ---------- 初始化场景与后期光效 ----------
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x010518);
+    scene.fog = new THREE.FogExp2(0x010518, 0.003);
+    
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(11, 5, 14);
+    camera.lookAt(0, 0.5, 0);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    container.appendChild(renderer.domElement);
+    
+    // 炫光特效 bloom
+    const renderScene = new RenderPass(scene, camera);
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.3, 0.85);
+    bloomPass.threshold = 0.1;
+    bloomPass.strength = 0.8;
+    bloomPass.radius = 0.5;
+    const effectComposer = new EffectComposer(renderer);
+    effectComposer.addPass(renderScene);
+    effectComposer.addPass(bloomPass);
+    
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.autoRotate = false;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 1.0;
+    controls.target.set(0, 1.2, 0);
+    
+    // 灯光体系：科技光晕
+    const ambient = new THREE.AmbientLight(0x111122);
+    scene.add(ambient);
+    const mainDir = new THREE.DirectionalLight(0x88aaff, 1);
+    mainDir.position.set(5, 12, 6);
+    mainDir.castShadow = true;
+    scene.add(mainDir);
+    const blueFill = new THREE.PointLight(0x2266ff, 0.6);
+    blueFill.position.set(-3, 2, 5);
+    scene.add(blueFill);
+    const purpleFill = new THREE.PointLight(0xff44aa, 0.5);
+    purpleFill.position.set(2, 3, -4);
+    scene.add(purpleFill);
+    
+    // 全息地面网格
+    const gridHelper = new THREE.GridHelper(28, 40, 0x00ccff, 0x3366aa);
+    gridHelper.position.y = -0.8;
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.3;
+    scene.add(gridHelper);
+    
+    // 核心数据球体 (量子核心)
+    const coreMat = new THREE.MeshStandardMaterial({ color: 0x0cf, emissive: 0x2a6faf, emissiveIntensity: 1.2, metalness: 0.8 });
+    const coreSphere = new THREE.Mesh(new THREE.SphereGeometry(0.85, 64, 64), coreMat);
+    coreSphere.castShadow = true;
+    scene.add(coreSphere);
+    // 环绕粒子光环 (高速旋转)
+    const ringPts = [];
+    const ringGeo = new THREE.BufferGeometry();
+    const ringPos = [];
+    for (let i = 0; i < 360; i++) {
+        const ang = (i / 180) * Math.PI;
+        const rad = 1.55;
+        ringPos.push(Math.cos(ang) * rad, Math.sin(ang) * rad * 0.5, Math.sin(ang) * rad);
+    }
+    ringGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ringPos), 3));
+    const ringPointsMat = new THREE.PointsMaterial({ color: 0xff44cc, size: 0.06 });
+    const ringPointsObj = new THREE.Points(ringGeo, ringPointsMat);
+    scene.add(ringPointsObj);
+    
+    // 炫光能量环
+    const energyRing = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.04, 64, 300), new THREE.MeshStandardMaterial({ color: 0x0cf, emissive: 0x0cf, emissiveIntensity: 0.7 }));
+    energyRing.rotation.x = Math.PI / 2;
+    scene.add(energyRing);
+    
+    // 创建高级无人机编队（30个漂浮体）
+    const drones = [];
+    const droneColors = [0x33aaff, 0x44ddff, 0xaa44ff, 0xff44aa];
+    for (let i = 0; i < 12; i++) {
+        const group = new THREE.Group();
+        const bodyGeo = new THREE.IcosahedronGeometry(0.28, 0);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: droneColors[i%4], emissive: 0x2266aa, emissiveIntensity: 0.4 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        group.add(body);
+        const ringSmall = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 16, 40), new THREE.MeshStandardMaterial({ color: 0x0cf }));
+        group.add(ringSmall);
+        const angleRad = (i / 12) * Math.PI * 2;
+        const radius = 5.2;
+        group.userData = { angle: angleRad, radius: radius, speed: 0.004 + Math.random() * 0.008, yOffset: 0, hoverSpeed: 0.01 };
+        group.position.x = Math.cos(angleRad) * radius;
+        group.position.z = Math.sin(angleRad) * radius;
+        group.position.y = 0.6 + Math.sin(angleRad * 3) * 0.4;
+        scene.add(group);
+        drones.push(group);
+    }
+    
+    // 漂浮粒子系统 (科技尘埃)
+    const particleCount = 1800;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePositions = [];
+    for (let i = 0; i < particleCount; i++) {
+        particlePositions.push((Math.random() - 0.5) * 42);
+        particlePositions.push((Math.random() - 0.5) * 15 + 1);
+        particlePositions.push((Math.random() - 0.5) * 32);
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(particlePositions), 3));
+    const particleMat = new THREE.PointsMaterial({ color: 0x88bbff, size: 0.045, transparent: true, opacity: 0.5 });
+    const particleSys = new THREE.Points(particleGeo, particleMat);
+    scene.add(particleSys);
+    
+    // 炫光动态光源
+    const flickerLight = new THREE.PointLight(0x0cf, 0.8);
+    flickerLight.position.set(1, 1.2, 1);
+    scene.add(flickerLight);
+    
+    // 辅助全息文字 (CSS2D略, 已经够酷)
+    
+    // 全局特效函数
+    function addPulseEffect(x, y) {
+        const div = document.createElement('div');
+        div.className = 'pulse-ring';
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 700);
+    }
+    document.body.addEventListener('click', (e) => {
+        addPulseEffect(e.clientX, e.clientY);
+    });
+    
+    // 决策日志
+    const logBox = document.getElementById('decisionLog');
+    function addLog(msg) {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `⫸ ${new Date().toLocaleTimeString()} · ${msg}`;
+        logBox.appendChild(entry);
+        logBox.scrollTop = logBox.scrollHeight;
+        if(logBox.children.length > 12) logBox.removeChild(logBox.children[0]);
+    }
+    
+    // =========  API接入 (真实advice, time) ==========
+    async function invokeAPI(type) {
+        const apiMsgSpan = document.getElementById('apiDynamicMsg');
+        addLog(`[API] 请求生态情报流: ${type}`);
+        try {
+            if(type === 'advice') {
+                const res = await fetch('https://api.adviceslip.com/advice');
+                const data = await res.json();
+                const advice = data.slip.advice;
+                apiMsgSpan.innerHTML = `🌍 认知层建议: “${advice}” <i class="fas fa-quantum"></i>`;
+                addLog(`AI生态智慧: ${advice.substring(0, 60)}`);
+                return advice;
+            } else if(type === 'drone') {
+                const mock = { active: Math.floor(Math.random()*8+6), load: (Math.random()*30+70).toFixed(1) };
+                apiMsgSpan.innerHTML = `🚀 无人机群实际状态: 在线${mock.active}架, 算力负载 ${mock.load}%`;
+                addLog(`编队遥测API同步: ${mock.active}架活跃无人机`);
+                return mock;
+            } else {
+                const timeRes = await fetch('https://worldtimeapi.org/api/timezone/Asia/Shanghai');
+                const timeData = await timeRes.json();
+                apiMsgSpan.innerHTML = `⏱️ 全局时钟同步: ${timeData.datetime.slice(0,19)} | 纳秒级共识`;
+                addLog(`时间同步完成，无人系统时钟偏移<1μs`);
+                return timeData;
+            }
+        } catch(e) {
+            apiMsgSpan.innerHTML = `🌀 量子云桥接模式: 模拟生态脉动数据 (HF)`;
+            addLog(`API 融合层切换至本地生成决策流`);
+            return null;
+        }
+    }
+    
+    // 图表初始化 (雷达风格)
+    let synergyChart;
+    function initRadarChart() {
+        const ctx = document.getElementById('fusionRadar').getContext('2d');
+        synergyChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: ['感知', '决策', '协同', '适应', '进化'], datasets: [{ label: '生态指数量级', data: [92, 88, 95, 89, 94], borderColor: '#0cf', backgroundColor: 'rgba(0,200,255,0.2)', tension: 0.3, fill: true, pointBorderColor: '#ff66ff' }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#ccf' } } } }
+        });
+    }
+    function updateMetricsRandom() {
+        const throughputSpan = document.getElementById('throughputVal');
+        const synergySpan = document.getElementById('synergyVal');
+        let newT = Math.floor(Math.random() * 350 + 750);
+        let newS = (Math.random() * 5 + 93.5).toFixed(1);
+        throughputSpan.innerText = newT;
+        synergySpan.innerText = newS + '%';
+        if(synergyChart) {
+            const newVal = Math.floor(Math.random() * 20 + 80);
+            synergyChart.data.datasets[0].data.push(newVal);
+            synergyChart.data.datasets[0].data.shift();
+            synergyChart.update();
+        }
+        addLog(`📊 生态吞吐量跃迁 ${newT} ops/s, 协同熵减 ${newS}%`);
+    }
+    
+    // 按钮华丽特效
+    function flashCoreAndDrones(intensity = 1.2) {
+        coreMat.emissiveIntensity = intensity;
+        flickerLight.intensity = 1.2;
+        setTimeout(() => { coreMat.emissiveIntensity = 0.6; flickerLight.intensity = 0.6; }, 400);
+        drones.forEach(d => { if(d.children[0]) d.children[0].material.emissiveIntensity = 0.9; setTimeout(() => { if(d.children[0]) d.children[0].material.emissiveIntensity = 0.2; }, 500); });
+    }
+    
+    // 按钮绑定 + 华丽特效 + API + 更新指标
+    document.getElementById('quantumDecisionBtn').addEventListener('click', async () => {
+        addLog('⚛️ 量子决策引擎激活 | 超图掩码推理');
+        flashCoreAndDrones(1.5);
+        await invokeAPI('advice');
+        updateMetricsRandom();
+        energyRing.material.emissiveIntensity = 1.0;
+        setTimeout(()=> energyRing.material.emissiveIntensity = 0.4, 500);
+    });
+    document.getElementById('swarmEcoBtn').addEventListener('click', async () => {
+        addLog('🌐 生态组网: 动态超图链路建立');
+        flashCoreAndDrones(1.2);
+        particleMat.color.setHex(0xff88ff);
+        setTimeout(()=> particleMat.color.setHex(0x88bbff), 600);
+        await invokeAPI('drone');
+        updateMetricsRandom();
+    });
+    document.getElementById('hyperPathBtn').addEventListener('click', async () => {
+        addLog('🧬 超维规划: 多智能体强化学习轨迹生成');
+        flashCoreAndDrones(1.4);
+        ringPointsMat.color.setHex(0xff44cc);
+        setTimeout(()=> ringPointsMat.color.setHex(0xff44cc), 300);
+        await invokeAPI('time');
+        updateMetricsRandom();
+    });
+    document.getElementById('apiFusionBtn').addEventListener('click', async () => {
+        addLog('🔮 全息API融合: 接入外部情报与实时决策流');
+        flashCoreAndDrones(1.6);
+        await invokeAPI('advice');
+        await invokeAPI('drone');
+        updateMetricsRandom();
+    });
+    document.getElementById('activateSwarmBtn').addEventListener('click', () => {
+        addLog('⚡ 编队全息激活: 仿生集群运动协议 | 解决协同滞后痛点');
+        drones.forEach((d, idx) => {
+            d.userData.speed = 0.012;
+            d.userData.radius = 6.0;
+            if(d.children[0]) d.children[0].material.color.setHex(0xff66aa);
+            setTimeout(()=> { if(d.children[0]) d.children[0].material.color.setHex(droneColors[idx%4]); }, 800);
+        });
+        document.getElementById('droneStatusViz').innerHTML = "🚀 全息编队升空 | 动态避障群智能激活";
+        updateMetricsRandom();
+    });
+    document.getElementById('resetUniverseBtn').addEventListener('click', () => {
+        addLog('🌀 生态重置 · 超维基线校准');
+        drones.forEach((d, idx) => {
+            d.userData.speed = 0.006 + idx*0.0005;
+            d.userData.radius = 5.2;
+        });
+        document.getElementById('throughputVal').innerText = '847';
+        document.getElementById('synergyVal').innerText = '96.2%';
+        if(synergyChart) synergyChart.data.datasets[0].data = [92,88,95,89,94]; synergyChart.update();
+        document.getElementById('droneStatusViz').innerHTML = "🚁 先锋无人机 6 | ⚙️ 地面UGV 4 | 空域协同";
+        addLog('系统重置完成，生态决策熵值归零');
+    });
+    
+    // 动画循环
+    let animTime = 0;
+    function animateDronesAndEffects() {
+        animTime += 0.012;
+        drones.forEach(drone => {
+            let angle = drone.userData.angle + drone.userData.speed;
+            drone.userData.angle = angle;
+            const radius = drone.userData.radius;
+            drone.position.x = Math.cos(angle) * radius;
+            drone.position.z = Math.sin(angle) * radius;
+            drone.position.y = 0.7 + Math.sin(angle * 2 + animTime) * 0.35;
+            if(drone.children[1]) drone.children[1].rotation.x += 0.03;
+        });
+        ringPointsObj.rotation.y += 0.01;
+        ringPointsObj.rotation.x = Math.sin(animTime * 0.6) * 0.2;
+        energyRing.rotation.z += 0.008;
+        particleSys.rotation.y += 0.002;
+        coreSphere.scale.setScalar(1 + Math.sin(animTime * 7) * 0.02);
+        flickerLight.intensity = 0.65 + Math.sin(animTime * 12) * 0.2;
+    }
+    
+    function renderLoop() {
+        requestAnimationFrame(renderLoop);
+        animateDronesAndEffects();
+        controls.update();
+        effectComposer.render();
+    }
+    renderLoop();
+    
+    initRadarChart();
+    addLog('🔷 RBOS 超维决策生态启动 | 哈工大· 异构无人系统全局协同');
+    
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        effectComposer.setSize(window.innerWidth, window.innerHeight);
+    });
+    
+    // 定时脉冲指标
+    setInterval(() => {
+        updateMetricsRandom();
+    }, 11000);
+</script>
+</body>
+</html>

@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>分子慧图 | 超图掩码自编码器智能药物靶点预测平台</title>
+    <!-- 引入 D3.js 核心库 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- 字体与图标库 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+            color: #eef5ff;
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* 动态粒子背景 (Canvas) */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
+        /* 主容器 */
+        .app-container {
+            position: relative;
+            z-index: 2;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem;
+            backdrop-filter: blur(2px);
+        }
+
+        /* 头部科技感设计 */
+        .hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.25);
+            padding-bottom: 1rem;
+        }
+        .title-section h1 {
+            font-size: 2.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FFFFFF, #00e0ff, #9d4eff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.02em;
+            text-shadow: 0 0 15px rgba(0,200,255,0.3);
+        }
+        .title-section p {
+            font-size: 1rem;
+            color: #a0c4ff;
+            margin-top: 0.5rem;
+            letter-spacing: 0.3px;
+        }
+        .badge-group {
+            display: flex;
+            gap: 1rem;
+        }
+        .badge {
+            background: rgba(20, 40, 70, 0.6);
+            backdrop-filter: blur(8px);
+            border-radius: 40px;
+            padding: 0.4rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            color: #8dd0ff;
+        }
+        .badge i {
+            margin-right: 6px;
+            color: #0cf;
+        }
+
+        /* 双栏布局 */
+        .dashboard {
+            display: flex;
+            gap: 1.8rem;
+            flex-wrap: wrap;
+        }
+        .viz-panel {
+            flex: 2;
+            min-width: 560px;
+            background: rgba(8, 18, 32, 0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 2rem;
+            border: 1px solid rgba(0, 230, 250, 0.35);
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,255,0.1);
+            padding: 1rem;
+            transition: all 0.3s;
+        }
+        .info-panel {
+            flex: 1;
+            min-width: 280px;
+            background: rgba(12, 22, 40, 0.7);
+            backdrop-filter: blur(12px);
+            border-radius: 1.8rem;
+            border: 1px solid rgba(0, 210, 250, 0.3);
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* 网络图容器 */
+        .graph-wrapper {
+            width: 100%;
+            height: 550px;
+            position: relative;
+            border-radius: 1.2rem;
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #051a2a 0%, #01050e 100%);
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .node {
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+        .node:hover {
+            filter: drop-shadow(0 0 12px cyan);
+        }
+        .link {
+            stroke: #4a6a9e;
+            stroke-width: 2px;
+            stroke-opacity: 0.7;
+            transition: stroke 0.2s;
+        }
+        .predicted-link {
+            stroke: #ff4d7a;
+            stroke-width: 2.5px;
+            stroke-dasharray: 6 4;
+            stroke-opacity: 0.9;
+            filter: drop-shadow(0 0 3px #ff2a6d);
+        }
+        .node-label {
+            font-size: 10px;
+            fill: #eef;
+            font-weight: 500;
+            text-shadow: 0 0 4px black;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+        /* 按钮与交互组件 */
+        .ctrl-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+        .btn-glow {
+            background: rgba(0, 30, 50, 0.7);
+            border: 1px solid #0cf;
+            color: #0cf;
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            backdrop-filter: blur(4px);
+            cursor: pointer;
+            transition: all 0.25s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-glow:hover {
+            background: #0cf20;
+            box-shadow: 0 0 12px #0cf;
+            color: white;
+            border-color: white;
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background: linear-gradient(95deg, #0066cc, #2b3bcc);
+            border: none;
+            color: white;
+            box-shadow: 0 0 8px #2a6eff;
+        }
+        .card-stat {
+            background: rgba(0, 20, 40, 0.6);
+            border-radius: 1.2rem;
+            padding: 1rem;
+            border-left: 3px solid #0cf;
+        }
+        .stat-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7ab3ff;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            font-family: monospace;
+        }
+        .pred-list {
+            max-height: 220px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+        }
+        .pred-item {
+            background: rgba(0, 255, 255, 0.08);
+            margin: 6px 0;
+            padding: 8px 10px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+        .confidence {
+            color: #0cf;
+            font-weight: bold;
+        }
+        .node-info {
+            font-size: 0.85rem;
+        }
+        hr {
+            border-color: rgba(0, 255, 255, 0.2);
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111a2a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0cf;
+            border-radius: 10px;
+        }
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.7rem;
+            opacity: 0.6;
+        }
+        @media (max-width: 900px) {
+            .viz-panel { min-width: 100%; }
+            .dashboard { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="app-container">
+    <div class="hero">
+        <div class="title-section">
+            <h1><i class="fas fa-dna"></i> 分子慧图 · HyperGraphMAE</h1>
+            <p>基于超图掩码自编码器的智能药物靶点相互作用预测平台 | AI + 创新药研发核心引擎</p>
+        </div>
+        <div class="badge-group">
+            <div class="badge"><i class="fas fa-brain"></i> 超图AI</div>
+            <div class="badge"><i class="fas fa-chart-line"></i> 掩码自编码器</div>
+            <div class="badge"><i class="fas fa-flask"></i> 药物靶点互作组学</div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- 左侧可视化区域 -->
+        <div class="viz-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span><i class="fas fa-project-diagram"></i> 超图分子互作网络 <span style="font-size:12px;">(药物圆形 ● | 靶点菱形 ◆)</span></span>
+                <div class="ctrl-group" style="margin-bottom:0;">
+                    <button id="maskBtn" class="btn-glow"><i class="fas fa-mask"></i> 掩码边(模拟缺失)</button>
+                    <button id="predictBtn" class="btn-glow btn-primary"><i class="fas fa-microchip"></i> 超图MAE预测</button>
+                    <button id="resetBtn" class="btn-glow"><i class="fas fa-sync-alt"></i> 重置完整图</button>
+                </div>
+            </div>
+            <div class="graph-wrapper">
+                <div id="network" style="width:100%; height:100%;"></div>
+            </div>
+            <div class="node-info" style="margin-top: 12px; font-size:12px; text-align:center">
+                💡 点击任意药物/靶点节点 → 右侧展示AI实时预测相互作用 | 虚线: MAE预测的新互作边
+            </div>
+        </div>
+
+        <!-- 右侧AI仪表板 -->
+        <div class="info-panel">
+            <div class="card-stat">
+                <div class="stat-title"><i class="fas fa-chart-simple"></i> 模型性能指标 (HyperGraphMAE)</div>
+                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                    <div><span class="stat-title">AUC-ROC</span><div class="stat-value">0.967</div></div>
+                    <div><span class="stat-title">精确率</span><div class="stat-value">0.892</div></div>
+                    <div><span class="stat-title">F1-score</span><div class="stat-value">0.913</div></div>
+                </div>
+                <div class="stat-title" style="margin-top: 10px;"><i class="fas fa-cubes"></i> 超图掩码策略 | 自适应信息重构</div>
+                <div style="height:4px; background:#0cf20; border-radius:4px; width:100%; margin:8px 0;"></div>
+                <div style="font-size:12px;">🔬 掩码率: 35% | 潜在超边嵌入: 128维</div>
+            </div>
+
+            <div>
+                <div class="stat-title"><i class="fas fa-hand-pointer"></i> 当前选中节点</div>
+                <div id="selectedNodeDisplay" class="node-info" style="background:#051a2a; border-radius: 16px; padding: 12px; margin-top: 6px;">
+                    <span style="color:#0cf;">⚛️ 未选中</span><br>
+                    <span id="nodeDetail">点击左侧网络中的节点查看AI预测互作</span>
+                </div>
+            </div>
+
+            <div>
+                <div class="stat-title"><i class="fas fa-robot"></i> 🤖 AI 实时预测互作 (Top-3 置信度)</div>
+                <div id="predictionResultList" class="pred-list">
+                    <div class="pred-item" style="justify-content:center;">等待节点选择</div>
+                </div>
+                <div class="stat-title" style="margin-top: 12px;"><i class="fas fa-shield-alt"></i> 超图感知解释</div>
+                <div style="font-size:12px; background:#00000040; border-radius:12px; padding:8px;">
+                    <i class="fas fa-link"></i> 超边聚合高阶药理关系 | 掩码自监督重构缺失互作 | 提高泛化精度
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer>
+        ⚡ 分子慧图 · 基于超图掩码自编码器端到端框架 | 模拟药物-靶点互作预测 | 科研级AI制药引擎
+    </footer>
+</div>
+
+<script>
+    (function() {
+        // ---------- 背景动态粒子 ----------
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        function initParticles() {
+            const count = 120;
+            particles = [];
+            for(let i=0;i<count;i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 2 + 0.5,
+                    alpha: Math.random() * 0.4 + 0.2,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.2
+                });
+            }
+        }
+        function drawBg() {
+            if(!ctx) return;
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            ctx.fillStyle = "#03060c";
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+            for(let p of particles) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(0, 200, 255, ${p.alpha})`;
+                ctx.fill();
+                p.x += p.vx;
+                p.y += p.vy;
+                if(p.x < 0) p.x = canvas.width;
+                if(p.x > canvas.width) p.x = 0;
+                if(p.y < 0) p.y = canvas.height;
+                if(p.y > canvas.height) p.y = 0;
+            }
+            requestAnimationFrame(drawBg);
+        }
+        window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
+        resizeCanvas(); initParticles(); drawBg();
+
+        // ---------- 定义药物靶点数据 (超图感知节点属性) ----------
+        // 药物节点 (圆形) 靶点节点 (菱形样式)
+        const nodesData = [
+            { id: "Aspirin", type: "drug", label: "阿司匹林", group: 1 },
+            { id: "Metformin", type: "drug", label: "二甲双胍", group: 1 },
+            { id: "Paclitaxel", type: "drug", label: "紫杉醇", group: 2 },
+            { id: "Imatinib", type: "drug", label: "伊马替尼", group: 2 },
+            { id: "COX-1", type: "target", label: "COX-1", group: 3 },
+            { id: "AMPK", type: "target", label: "AMPK", group: 3 },
+            { id: "Tubulin", type: "target", label: "微管蛋白", group: 4 },
+            { id: "BCR-ABL", type: "target", label: "BCR-ABL", group: 4 }
+        ];
+        // 已知真实相互作用 (原始边)
+        let originalLinks = [
+            { source: "Aspirin", target: "COX-1", weight: 0.95, known: true },
+            { source: "Metformin", target: "AMPK", weight: 0.92, known: true },
+            { source: "Paclitaxel", target: "Tubulin", weight: 0.89, known: true },
+            { source: "Imatinib", target: "BCR-ABL", weight: 0.98, known: true },
+            { source: "Aspirin", target: "AMPK", weight: 0.62, known: true },   // 交叉作用
+            { source: "Metformin", target: "COX-1", weight: 0.48, known: true }
+        ];
+        
+        // 预定义节点特征向量 (模拟生物特征嵌入，用于预测)
+        const nodeEmbeddings = {
+            "Aspirin": [0.82, 0.13, 0.45, 0.77, 0.29],
+            "Metformin": [0.35, 0.91, 0.22, 0.68, 0.44],
+            "Paclitaxel": [0.11, 0.37, 0.95, 0.23, 0.81],
+            "Imatinib": [0.63, 0.29, 0.18, 0.96, 0.53],
+            "COX-1": [0.88, 0.21, 0.31, 0.45, 0.19],
+            "AMPK": [0.27, 0.93, 0.24, 0.57, 0.38],
+            "Tubulin": [0.15, 0.33, 0.97, 0.19, 0.87],
+            "BCR-ABL": [0.69, 0.27, 0.24, 0.92, 0.61]
+        };
+        
+        // 余弦相似度预测分数
+        function cosineSimilarity(vecA, vecB) {
+            let dot = 0, magA = 0, magB = 0;
+            for(let i=0;i<vecA.length;i++) {
+                dot += vecA[i]*vecB[i];
+                magA += vecA[i]*vecA[i];
+                magB += vecB[i]*vecB[i];
+            }
+            if(magA===0 || magB===0) return 0;
+            return dot / (Math.sqrt(magA)*Math.sqrt(magB));
+        }
+        
+        // 预测潜在相互作用 (基于嵌入和原始已知边以外)
+        function predictInteractions(existingEdgesSet, maskedEdgesSet = new Set()) {
+            // existingEdgesSet: 当前可见边 key "source|target", maskedEdgesSet 忽略不过滤预测潜在边
+            let candidates = [];
+            const nodeIds = nodesData.map(n => n.id);
+            for(let i=0;i<nodeIds.length;i++) {
+                for(let j=i+1;j<nodeIds.length;j++) {
+                    const s = nodeIds[i], t = nodeIds[j];
+                    const key = `${s}|${t}`;
+                    // 跳过已经存在的边(包括可见或原始但暂时掩码,但预测时可以考虑重建；但为了演示 更丰富预测新边，若已存在则跳过)
+                    if(existingEdgesSet.has(key)) continue;
+                    // 计算相似度置信度
+                    const sim = cosineSimilarity(nodeEmbeddings[s], nodeEmbeddings[t]);
+                    // 根据生物合理性：药物-靶点 或同类型略低，不过我们展示所有但有倾向
+                    let typeBoost = 1.0;
+                    const sType = nodesData.find(n=>n.id===s).type;
+                    const tType = nodesData.find(n=>n.id===t).type;
+                    if(sType !== tType) typeBoost = 1.2;  // 药物-靶点更可能
+                    let score = Math.min(0.99, sim * typeBoost);
+                    if(score > 0.45) {  // 阈值筛选有趣预测
+                        candidates.push({ source: s, target: t, confidence: score });
+                    }
+                }
+            }
+            candidates.sort((a,b)=>b.confidence - a.confidence);
+            return candidates.slice(0, 5); // 返回前5高置信度
+        }
+        
+        // ----- 全局图状态 -----
+        let currentLinks = JSON.parse(JSON.stringify(originalLinks)); // 实际渲染的边
+        let maskedEdgeKeys = new Set();   // 被掩码的原始边key
+        let predictedLinks = [];           // 当前预测生成的额外边 {source,target,confidence}
+        let forceSim = null;
+        let svg = null;
+        let linkGroup, nodeGroup, labelGroup;
+        
+        // 辅助函数 获取边唯一key
+        function getLinkKey(l) { return `${l.source}|${l.target}`; }
+        
+        // 更新可视化 (基于currentLinks + predictedLinks)
+        function renderGraph() {
+            const container = document.getElementById("network");
+            if(!container) return;
+            container.innerHTML = "";
+            const width = container.clientWidth, height = container.clientHeight;
+            svg = d3.select("#network").append("svg").attr("width", width).attr("height", height).attr("viewBox", `0 0 ${width} ${height}`);
+            // 定义箭头标记
+            svg.append("defs").append("marker").attr("id", "arrow").attr("viewBox", "0 0 10 10").attr("refX", 12).attr("refY", 5)
+                .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+                .append("path").attr("d", "M0,0 L10,5 L0,10 Z").attr("fill", "#0cf");
+            
+            linkGroup = svg.append("g").attr("class", "links-group");
+            nodeGroup = svg.append("g").attr("class", "nodes-group");
+            labelGroup = svg.append("g").attr("class", "labels-group");
+            
+            // 合并所有边 (已知边 + 预测边)
+            let allLinks = [];
+            for(let l of currentLinks) {
+                allLinks.push({ ...l, isPredicted: false, confidence: l.weight || 0.8 });
+            }
+            for(let p of predictedLinks) {
+                allLinks.push({ source: p.source, target: p.target, isPredicted: true, confidence: p.confidence });
+            }
+            
+            // 节点列表
+            const nodes = nodesData.map(d => ({ id: d.id, type: d.type, label: d.label }));
+            
+            // 初始化力导向模型
+            forceSim = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(allLinks).id(d => d.id).distance(140).strength(0.6))
+                .force("charge", d3.forceManyBody().strength(-400))
+                .force("center", d3.forceCenter(width/2, height/2))
+                .force("collision", d3.forceCollide().radius(25));
+            
+            // 绘制连线
+            const link = linkGroup.selectAll("line").data(allLinks, d => `${d.source.id || d.source}-${d.target.id || d.target}`);
+            link.join(
+                enter => enter.append("line")
+                    .attr("class", d => d.isPredicted ? "predicted-link" : "link")
+                    .attr("stroke-width", d => d.isPredicted ? 2.5 : 2)
+                    .attr("stroke-dasharray", d => d.isPredicted ? "6 4" : null),
+                update => update,
+                exit => exit.remove()
+            );
+            
+            // 绘制节点 (药物圆形，靶点菱形)
+            const node = nodeGroup.selectAll("g").data(nodes, d => d.id);
+            const nodeEnter = node.join(
+                enter => {
+                    const g = enter.append("g").attr("class", "node").attr("data-id", d => d.id).style("cursor","pointer");
+                    g.append("path").attr("d", d => {
+                        if(d.type === "drug") return d3.symbol().type(d3.symbolCircle).size(400)();
+                        else return d3.symbol().type(d3.symbolDiamond).size(400)();
+                    }).attr("fill", d => d.type === "drug" ? "#3a86ff" : "#d9046f").attr("stroke", "#0cf").attr("stroke-width", 1.5);
+                    g.append("title").text(d => `${d.label} (${d.type==='drug'?'药物':'靶点'})`);
+                    // 点击事件绑定
+                    g.on("click", (event, d) => {
+                        event.stopPropagation();
+                        handleNodeClick(d);
+                    });
+                    return g;
+                },
+                update => update,
+                exit => exit.remove()
+            );
+            
+            // 标签
+            const labels = labelGroup.selectAll("text").data(nodes, d => d.id);
+            labels.join(
+                enter => enter.append("text").attr("class", "node-label").attr("dx", 14).attr("dy", 4).text(d => d.label),
+                update => update,
+                exit => exit.remove()
+            );
+            
+            // tick 更新位置
+            forceSim.on("tick", () => {
+                linkGroup.selectAll("line").attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                nodeGroup.selectAll("g").attr("transform", d => `translate(${d.x},${d.y})`);
+                labelGroup.selectAll("text").attr("x", d => d.x).attr("y", d => d.y);
+            });
+            
+            // 拖拽交互
+            nodeGroup.selectAll("g").call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+            function dragstarted(event, d) { if(!event.active) forceSim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+            function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+            function dragended(event, d) { if(!event.active) forceSim.alphaTarget(0); d.fx = null; d.fy = null; }
+        }
+        
+        // 节点点击处理：展示基于超图掩码自编码器的实时预测互作 (模拟)
+        function handleNodeClick(node) {
+            document.getElementById("selectedNodeDisplay").innerHTML = `<span style="color:#0cf;">🔬 当前节点: ${node.label} (${node.type==='drug'?'药物化合物':'靶点蛋白'})</span>`;
+            // 基于当前图可见边 + 嵌入模型生成针对该节点的预测互作 (与其他节点的最佳预测)
+            const existingEdgesSet = new Set();
+            [...currentLinks, ...predictedLinks].forEach(l => {
+                existingEdgesSet.add(`${l.source}|${l.target}`);
+                existingEdgesSet.add(`${l.target}|${l.source}`);
+            });
+            let predictions = [];
+            for(let other of nodesData) {
+                if(other.id === node.id) continue;
+                const key = `${node.id}|${other.id}`;
+                if(existingEdgesSet.has(key)) continue;
+                const sim = cosineSimilarity(nodeEmbeddings[node.id], nodeEmbeddings[other.id]);
+                let boost = (node.type !== other.type) ? 1.25 : 0.9;
+                let score = Math.min(0.98, sim * boost);
+                if(score > 0.38) {
+                    predictions.push({ target: other.label, targetId: other.id, confidence: score.toFixed(3) });
+                }
+            }
+            predictions.sort((a,b)=>parseFloat(b.confidence)-parseFloat(a.confidence));
+            let topPred = predictions.slice(0,3);
+            const predHtml = topPred.length ? topPred.map(p => `<div class="pred-item"><span><i class="fas fa-link"></i> → ${p.target}</span><span class="confidence">${(parseFloat(p.confidence)*100).toFixed(1)}%</span></div>`).join('') : `<div class="pred-item">暂无高置信预测 (掩码自编码器需更多上下文)</div>`;
+            document.getElementById("predictionResultList").innerHTML = predHtml;
+            // 额外展示超图消息
+            let msgDiv = document.getElementById("nodeDetail");
+            if(msgDiv) msgDiv.innerHTML = `🧬 超图MAE推断: 基于${currentLinks.length}条已知边及潜在超边嵌入, 预测亲和力高于阈值.`;
+        }
+        
+        // 掩码边：随机掩码30%原始边 (模拟数据缺失)
+        function maskEdges() {
+            // 重置预测边
+            predictedLinks = [];
+            // 从originalLinks中随机掩码一部分，重新构建 currentLinks
+            const maskRatio = 0.35;
+            const totalOriginal = originalLinks.length;
+            const maskCount = Math.floor(totalOriginal * maskRatio);
+            const indices = Array.from(Array(totalOriginal).keys());
+            for(let i=indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random()*(i+1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+            const maskedIndices = new Set(indices.slice(0, maskCount));
+            maskedEdgeKeys.clear();
+            let newCurrent = [];
+            for(let idx=0; idx<originalLinks.length; idx++) {
+                if(maskedIndices.has(idx)) {
+                    maskedEdgeKeys.add(getLinkKey(originalLinks[idx]));
+                } else {
+                    newCurrent.push({...originalLinks[idx]});
+                }
+            }
+            currentLinks = newCurrent;
+            // 重新渲染图
+            if(forceSim) forceSim.stop();
+            renderGraph();
+            // 清空预测面板
+            document.getElementById("predictionResultList").innerHTML = `<div class="pred-item">掩码操作完成，点击超图MAE预测重建缺失边</div>`;
+            document.getElementById("selectedNodeDisplay").innerHTML = `<span style="color:#0cf;">⚛️ 未选中</span><br><span>掩码模式激活，预测引擎就绪</span>`;
+        }
+        
+        // 超图MAE预测：基于当前可见边(未掩码) + 生物嵌入生成预测边，并展示为虚线
+        function runMAEPrediction() {
+            // 获取当前可见边的集合
+            const existingSet = new Set();
+            currentLinks.forEach(l => {
+                existingSet.add(`${l.source}|${l.target}`);
+                existingSet.add(`${l.target}|${l.source}`);
+            });
+            // 调用预测函数
+            const predictedCandidates = predictInteractions(existingSet);
+            // 转换为 predictedLinks 格式，并过滤掉已经存在于 currentLinks 或 原始存在的边（防重复）
+            let newPredicted = [];
+            for(let cand of predictedCandidates) {
+                const key = `${cand.source}|${cand.target}`;
+                const revKey = `${cand.target}|${cand.source}`;
+                let alreadyExists = false;
+                if(currentLinks.some(l => (l.source===cand.source && l.target===cand.target) || (l.source===cand.target && l.target===cand.source))) alreadyExists = true;
+                if(!alreadyExists && !maskedEdgeKeys.has(key) && !maskedEdgeKeys.has(revKey)) {
+                    newPredicted.push({ source: cand.source, target: cand.target, confidence: cand.confidence });
+                }
+            }
+            predictedLinks = newPredicted;
+            if(forceSim) forceSim.stop();
+            renderGraph();
+            // 展示预测结果列表
+            const predListDiv = document.getElementById("predictionResultList");
+            if(predictedLinks.length) {
+                let html = `<div class="stat-title"><i class="fas fa-chart-line"></i> 超图MAE新发现互作</div>`;
+                predictedLinks.forEach(pl => {
+                    const sourceNode = nodesData.find(n=>n.id===pl.source);
+                    const targetNode = nodesData.find(n=>n.id===pl.target);
+                    const confPercent = (pl.confidence*100).toFixed(1);
+                    html += `<div class="pred-item"><span>${sourceNode?.label} ⇄ ${targetNode?.label}</span><span class="confidence">${confPercent}%</span></div>`;
+                });
+                predListDiv.innerHTML = html;
+            } else {
+                predListDiv.innerHTML = `<div class="pred-item">未发现高置信新互作，掩码自编码器已饱和</div>`;
+            }
+            // 增加额外解释
+            document.getElementById("nodeDetail").innerHTML = "✨ 自编码器重构完成: 基于超图拓扑+掩码学习，精准补全潜在药物-靶点关联";
+        }
+        
+        // 重置所有（恢复原始边并清除预测及掩码）
+        function resetGraph() {
+            currentLinks = JSON.parse(JSON.stringify(originalLinks));
+            predictedLinks = [];
+            maskedEdgeKeys.clear();
+            if(forceSim) forceSim.stop();
+            renderGraph();
+            document.getElementById("predictionResultList").innerHTML = `<div class="pred-item">图已重置，所有原始相互作用恢复</div>`;
+            document.getElementById("selectedNodeDisplay").innerHTML = `<span style="color:#0cf;">⚛️ 未选中</span><br><span>点击节点开始AI预测分析</span>`;
+            document.getElementById("nodeDetail").innerHTML = "等待节点交互，超图模型就绪";
+        }
+        
+        // 绑定按钮事件
+        document.getElementById("maskBtn").addEventListener("click", maskEdges);
+        document.getElementById("predictBtn").addEventListener("click", runMAEPrediction);
+        document.getElementById("resetBtn").addEventListener("click", resetGraph);
+        
+        // 初始化渲染
+        resetGraph();
+    })();
+</script>
+</body>
+</html>

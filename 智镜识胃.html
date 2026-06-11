@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>智镜识胃 | AI胃癌早筛智能诊疗系统</title>
+    <!-- Font Awesome 6 (免费图标库) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts: 现代科技字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+            color: #eef5ff;
+            line-height: 1.5;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 动态网格背景 (科技感) */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 光晕浮动效果 */
+        .glow-spot {
+            position: fixed;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, rgba(0, 180, 255, 0.08), transparent 70%);
+            border-radius: 50%;
+            top: -30vw;
+            right: -20vw;
+            z-index: 0;
+            pointer-events: none;
+            animation: floatGlow 18s infinite alternate;
+        }
+        .glow-spot2 {
+            left: -20vw;
+            bottom: -30vw;
+            top: auto;
+            right: auto;
+            background: radial-gradient(circle, rgba(123, 31, 162, 0.1), transparent 70%);
+            animation: floatGlow2 22s infinite alternate;
+        }
+        @keyframes floatGlow {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+            100% { transform: translate(5%, 5%) scale(1.2); opacity: 0.8; }
+        }
+        @keyframes floatGlow2 {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+            100% { transform: translate(-8%, -8%) scale(1.4); opacity: 0.7; }
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.8rem 2rem;
+        }
+
+        /* 头部区域 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+            backdrop-filter: blur(4px);
+        }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo-icon {
+            font-size: 2.8rem;
+            background: linear-gradient(135deg, #2af598, #08aeea);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 0 8px rgba(42, 245, 152, 0.5));
+        }
+        .logo-text h1 {
+            font-size: 1.9rem;
+            font-weight: 800;
+            background: linear-gradient(120deg, #FFFFFF, #7bc5f9);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+        .logo-text p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            letter-spacing: 1px;
+        }
+        .badge {
+            background: rgba(10, 30, 50, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            border-left: 3px solid #2af598;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .badge i {
+            margin-right: 6px;
+            color: #2af598;
+        }
+
+        /* 指标卡片行 */
+        .stats-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            justify-content: space-between;
+        }
+        .stat-card {
+            flex: 1;
+            min-width: 160px;
+            background: rgba(15, 25, 45, 0.55);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            padding: 1.2rem 1rem;
+            border: 1px solid rgba(42, 245, 152, 0.25);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #2af598;
+            box-shadow: 0 20px 40px rgba(0,255,200,0.15);
+        }
+        .stat-number {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #E0F2FE, #88E0FF);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+
+        /* 主区域 grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+        }
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            .container {
+                padding: 1rem;
+            }
+        }
+
+        /* 左侧影像区 + 切换按钮区 */
+        .imaging-panel {
+            background: rgba(8, 18, 28, 0.6);
+            backdrop-filter: blur(14px);
+            border-radius: 2rem;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+        .imaging-title {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        .endoscope-view {
+            background: #010b14;
+            border-radius: 28px;
+            padding: 1rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #2af59840;
+            box-shadow: 0 0 15px rgba(42,245,152,0.2);
+        }
+        .virtual-image {
+            background: radial-gradient(circle at 30% 40%, #0c2f3b, #031016);
+            border-radius: 24px;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent 30%, rgba(42,245,152,0.15) 50%, transparent 70%);
+            background-size: 200% 100%;
+            animation: scanning 3s infinite linear;
+            pointer-events: none;
+            border-radius: 24px;
+        }
+        @keyframes scanning {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .stomach-icon {
+            font-size: 4.5rem;
+            filter: drop-shadow(0 0 12px #2af598);
+            color: #6ee7ff;
+        }
+        .case-status-text {
+            font-weight: 600;
+            background: #00000066;
+            padding: 6px 16px;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(4px);
+        }
+        .case-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .btn-case {
+            flex: 1;
+            background: rgba(20, 40, 60, 0.7);
+            border: 1px solid #2af59860;
+            border-radius: 40px;
+            padding: 0.7rem 0;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .btn-case.active {
+            background: linear-gradient(95deg, #0f2f3f, #0b3b44);
+            border-color: #2af598;
+            box-shadow: 0 0 12px #2af59880;
+            color: white;
+        }
+        .btn-case:hover {
+            background: #1e4a5e;
+            transform: scale(0.98);
+        }
+        .analyze-btn {
+            background: linear-gradient(135deg, #08aeea, #2af598);
+            border: none;
+            width: 100%;
+            margin-top: 1.8rem;
+            padding: 0.9rem;
+            border-radius: 60px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #031016;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 0 12px rgba(42,245,152,0.5);
+        }
+        .analyze-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* 右侧面板 多模态 + 结果 */
+        .multimodal-panel {
+            background: rgba(8, 18, 28, 0.6);
+            backdrop-filter: blur(14px);
+            border-radius: 2rem;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .data-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 1.2rem;
+            padding: 1.2rem;
+            border-left: 4px solid #2af598;
+        }
+        .data-title {
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #b3f0ff;
+        }
+        .feature-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .tag {
+            background: #0e2a32;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+        .result-area {
+            background: #02101780;
+            border-radius: 1.2rem;
+            padding: 1rem;
+            transition: all 0.3s;
+        }
+        .risk-meter {
+            margin: 15px 0;
+        }
+        .risk-bar {
+            background: #1e2a36;
+            border-radius: 30px;
+            height: 12px;
+            overflow: hidden;
+        }
+        .risk-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #2af598, #f5b042);
+            border-radius: 30px;
+            transition: width 0.5s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+        .ai-conclusion {
+            font-weight: 700;
+            background: #0c1622;
+            padding: 12px;
+            border-radius: 18px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            border: 1px dashed #2af59870;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #2af598;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 底部技术栈 */
+        .tech-footer {
+            background: rgba(0,0,0,0.4);
+            border-radius: 2rem;
+            padding: 1rem 1.5rem;
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .tech-stack i {
+            margin: 0 6px;
+            font-size: 1rem;
+        }
+        button {
+            font-family: inherit;
+        }
+        .highlight {
+            color: #2af598;
+        }
+        hr {
+            border-color: #2af59820;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="glow-spot"></div>
+<div class="glow-spot glow-spot2"></div>
+
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div class="logo-area">
+            <div class="logo-icon"><i class="fas fa-stethoscope"></i><i class="fas fa-robot"></i></div>
+            <div class="logo-text">
+                <h1>智镜识胃<span style="font-size: 1rem;">™</span></h1>
+                <p>AI·多模态融合 | 胃癌早筛智能诊疗系统</p>
+            </div>
+        </div>
+        <div class="badge"><i class="fas fa-microchip"></i> 临床级辅助决策 v2.0</div>
+    </div>
+
+    <!-- KPI 指标 -->
+    <div class="stats-row">
+        <div class="stat-card"><div class="stat-number">94.7%</div><div class="stat-label">早癌识别敏感度</div></div>
+        <div class="stat-card"><div class="stat-number">91.2%</div><div class="stat-label">特异度 (验证集)</div></div>
+        <div class="stat-card"><div class="stat-number"><i class="fas fa-chart-line"></i> 28K+</div><div class="stat-label">多模态病例训练</div></div>
+        <div class="stat-card"><div class="stat-number"><i class="fas fa-clock"></i> 3.2s</div><div class="stat-label">AI实时推理</div></div>
+    </div>
+
+    <!-- 主交互区域 -->
+    <div class="main-grid">
+        <!-- 左侧影像模拟 & 病例切换 -->
+        <div class="imaging-panel">
+            <div class="imaging-title">
+                <span><i class="fas fa-camera"></i> 智能虚拟内镜影像</span>
+                <span style="font-size: 0.7rem;"><i class="fas fa-waveform"></i> 动态光谱增强</span>
+            </div>
+            <div class="endoscope-view">
+                <div class="virtual-image" id="virtualImageArea">
+                    <div class="scan-overlay"></div>
+                    <i class="fas fa-stomach stomach-icon" id="stomachIcon"></i>
+                    <div class="case-status-text" id="caseStatusLabel">正常胃黏膜 · 光滑规则</div>
+                    <div style="font-size: 0.7rem; opacity:0.7;"><i class="fas fa-chart-simple"></i> 胃窦 · NBI 放大内镜模拟</div>
+                </div>
+            </div>
+            <div class="case-buttons">
+                <button class="btn-case active" id="normalCaseBtn"><i class="fas fa-check-circle"></i> 典型正常案例</button>
+                <button class="btn-case" id="lesionCaseBtn"><i class="fas fa-exclamation-triangle"></i> 早期病变案例</button>
+            </div>
+            <button class="analyze-btn" id="aiAnalyzeBtn"><i class="fas fa-brain"></i> 启动 AI 多模态智能筛查 <i class="fas fa-arrow-right"></i></button>
+            <div style="margin-top: 12px; font-size: 0.7rem; text-align: center; opacity:0.6;"><i class="fas fa-shield-alt"></i> 融合影像组学、病理文本、内镜特征</div>
+        </div>
+
+        <!-- 右侧多模态数据 + AI动态结果 -->
+        <div class="multimodal-panel">
+            <div class="data-card">
+                <div class="data-title"><i class="fas fa-database"></i> 多模态融合特征池</div>
+                <div id="multiModalText" style="font-size:0.85rem; line-height:1.4;">
+                    <!-- 动态更新数据 -->
+                    患者年龄 45岁 | 性别 男<br>
+                    幽门螺杆菌(HP): 阴性<br>
+                    内镜表现: 黏膜光滑，规则血管纹理<br>
+                    病理文本: 慢性非萎缩性胃炎<br>
+                    影像组学特征: 纹理均质，无异常血管
+                </div>
+                <div class="feature-tags" id="featureTags">
+                    <span class="tag"># 规则黏膜</span>
+                    <span class="tag"># 无异常增生</span>
+                    <span class="tag"># 低风险指数</span>
+                </div>
+            </div>
+            <div class="result-area" id="resultArea">
+                <div class="data-title"><i class="fas fa-chart-pie"></i> AI 风险量化评估</div>
+                <div class="risk-meter">
+                    <div style="display: flex; justify-content: space-between;"><span>胃癌风险指数</span><span id="riskPercent">0%</span></div>
+                    <div class="risk-bar"><div class="risk-fill" id="riskFill" style="width: 0%;"></div></div>
+                </div>
+                <div id="aiInsight" class="ai-conclusion">
+                    <i class="fas fa-microchip"></i> 待启动智能筛查...
+                </div>
+                <div id="confidenceInfo" style="font-size:0.7rem; margin-top: 12px; text-align:right;">
+                    置信区间 & 可解释性热力映射待加载
+                </div>
+            </div>
+            <!-- 实时技术亮点 -->
+            <div class="data-card">
+                <div class="data-title"><i class="fas fa-chart-line"></i> 核心技术亮点</div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: space-between;">
+                    <div><i class="fas fa-layer-group highlight"></i> 多模态Transformer</div>
+                    <div><i class="fas fa-eye highlight"></i> 可解释Grad-CAM</div>
+                    <div><i class="fas fa-chart-simple highlight"></i> 预后预测模型</div>
+                </div>
+                <div style="margin-top: 8px;"><i class="fas fa-check-circle" style="color:#2af598;"></i> 已集成WSI级病理 & 内镜-临床数据</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tech-footer">
+        <div><i class="fas fa-flask"></i> 民生刚需 · 早筛覆盖率提升39% (临床前试验)</div>
+        <div class="tech-stack">
+            <i class="fab fa-python"></i> PyTorch | <i class="fas fa-mri"></i> 3D CNN | <i class="fas fa-chart-network"></i> 多模态融合
+        </div>
+        <div><i class="fas fa-hospital-user"></i> 赋能基层医疗 · 智能早诊新范式</div>
+    </div>
+</div>
+
+<script>
+    // 模拟病例数据 (多模态 + 影像特征)
+    const caseData = {
+        normal: {
+            name: "正常案例",
+            status: "正常胃黏膜 · 光滑规则",
+            iconClass: "fas fa-stomach",
+            multiText: "患者年龄 45岁 | 性别 男\n幽门螺杆菌(HP): 阴性\n内镜表现: 黏膜光滑，规则血管纹理，无隆起/凹陷\n病理文本: 慢性非萎缩性胃炎，未见异型增生\n影像组学特征: 灰度共生矩阵能量高，纹理均质",
+            tags: ["# 规则黏膜", "# 无异常增生", "# 低风险指数", "# HP阴性"],
+            riskScore: 8,      // 风险指数 0-100
+            insight: "✅ 低风险组 · AI预测胃癌概率 < 5%  推荐定期随访，保持健康生活习惯。",
+            confidence: "模型置信度: 97.3% (基于多模态交叉验证)",
+            fillWidth: "8%",
+            riskText: "8%"
+        },
+        lesion: {
+            name: "早期病变案例",
+            status: "⚠️ 可疑早期病变 · 局部黏膜异常",
+            iconClass: "fas fa-exclamation-triangle",
+            multiText: "患者年龄 58岁 | 性别 女\n幽门螺杆菌(HP): 阳性 (毒力因子CagA+)\n内镜表现: 胃窦小弯侧局限性黏膜隆起，表面粗糙伴微血管扩张，NBI见不规则微血管结构\n病理文本: 低级别上皮内瘤变，可疑早期癌变\n影像组学特征: 异质性高，角二阶矩降低",
+            tags: ["# 不规则微血管", "# 早期癌前病变", "# HP阳性", "# 高风险特征"],
+            riskScore: 86,
+            insight: "🔴 高风险预警 · AI评估早期胃癌可能性 86% · 建议立即精查胃镜 + 病理活检，多学科会诊。",
+            confidence: "模型置信度: 94.8% (多模态特征强激活, 关注不规则区域)",
+            fillWidth: "86%",
+            riskText: "86%"
+        }
+    };
+
+    let currentCase = "normal";   // 'normal' or 'lesion'
+    // DOM 元素
+    const virtualImageArea = document.getElementById("virtualImageArea");
+    const caseStatusLabel = document.getElementById("caseStatusLabel");
+    const stomachIcon = document.getElementById("stomachIcon");
+    const multiModalTextDiv = document.getElementById("multiModalText");
+    const featureTagsDiv = document.getElementById("featureTags");
+    const riskPercentSpan = document.getElementById("riskPercent");
+    const riskFillDiv = document.getElementById("riskFill");
+    const aiInsightDiv = document.getElementById("aiInsight");
+    const confidenceInfoSpan = document.getElementById("confidenceInfo");
+    const normalBtn = document.getElementById("normalCaseBtn");
+    const lesionBtn = document.getElementById("lesionCaseBtn");
+    const analyzeBtn = document.getElementById("aiAnalyzeBtn");
+
+    // 辅助函数：更新UI展示当前病例的基本信息 (不包含AI分析最终结果，但风险栏暂显示当前病例静态风险等待分析?为了体验，切换时重置分析结果显示待分析)
+    function updateCaseUI() {
+        const data = caseData[currentCase];
+        // 影像区域更新
+        caseStatusLabel.innerText = data.status;
+        // 更换图标样式
+        stomachIcon.className = data.iconClass + " stomach-icon";
+        // 多模态文本区域
+        multiModalTextDiv.innerText = data.multiText;
+        // 更新标签
+        featureTagsDiv.innerHTML = data.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+        
+        // 重置AI分析区域为未分析状态 (显示待分析，避免残留之前结果)
+        riskPercentSpan.innerText = "0%";
+        riskFillDiv.style.width = "0%";
+        aiInsightDiv.innerHTML = `<i class="fas fa-microchip"></i> 未启动筛查，请点击“AI智能筛查”获取精准评估`;
+        confidenceInfoSpan.innerHTML = `当前病例: ${data.name} | 切换后需重新运行AI分析`;
+        // 同时改变虚拟影像区域背景氛围（细微变化）
+        const virtualDiv = document.querySelector('.virtual-image');
+        if(currentCase === 'lesion') {
+            virtualDiv.style.boxShadow = "0 0 20px rgba(255,80,40,0.3)";
+            virtualDiv.style.border = "1px solid #f0883e";
+        } else {
+            virtualDiv.style.boxShadow = "0 0 15px rgba(42,245,152,0.2)";
+            virtualDiv.style.border = "1px solid #2af59840";
+        }
+    }
+
+    // 高亮切换按钮样式
+    function setActiveButton() {
+        if(currentCase === "normal") {
+            normalBtn.classList.add("active");
+            lesionBtn.classList.remove("active");
+        } else {
+            lesionBtn.classList.add("active");
+            normalBtn.classList.remove("active");
+        }
+    }
+
+    // AI分析模拟 (加载效果 + 动态显示结果)
+    function runAIAnalysis() {
+        // 获取当前病例数据
+        const data = caseData[currentCase];
+        // 显示加载中
+        aiInsightDiv.innerHTML = `<i class="loading-spinner"></i> AI模型推理中 · 多模态融合分析...`;
+        confidenceInfoSpan.innerHTML = `分析进度: 融合影像特征、文本编码、时序数据...`;
+        riskPercentSpan.innerText = "??";
+        
+        // 模拟网络延迟 & 计算 (高科技感)
+        setTimeout(() => {
+            // 动态更新风险数值及填充条
+            const targetRisk = data.riskScore;
+            const targetWidth = data.fillWidth;
+            const insightText = data.insight;
+            const confText = data.confidence;
+            
+            // 动画填充风险百分比
+            let currentPercent = 0;
+            const step = () => {
+                if(currentPercent < targetRisk) {
+                    currentPercent += Math.ceil((targetRisk - currentPercent)/8) + 1;
+                    if(currentPercent > targetRisk) currentPercent = targetRisk;
+                    riskPercentSpan.innerText = currentPercent + "%";
+                    riskFillDiv.style.width = currentPercent + "%";
+                    requestAnimationFrame(step);
+                } else {
+                    riskPercentSpan.innerText = targetRisk + "%";
+                    riskFillDiv.style.width = targetWidth;
+                }
+            };
+            step();
+            // 添加额外分析细节: 可解释性+ 置信度与建议
+            aiInsightDiv.innerHTML = `<i class="fas fa-chart-line"></i> ${insightText}`;
+            confidenceInfoSpan.innerHTML = `<i class="fas fa-chart-simple"></i> ${confText}  | 基于内镜-病理-影像组学联合决策`;
+            
+            // 若高风险显示强烈警示特效
+            if(currentCase === "lesion") {
+                aiInsightDiv.style.border = "1px solid #ff7b4a";
+                aiInsightDiv.style.background = "#2c1a1a70";
+                const resultAreaDiv = document.getElementById("resultArea");
+                resultAreaDiv.style.boxShadow = "0 0 12px rgba(255,80,40,0.4)";
+                setTimeout(() => {
+                    resultAreaDiv.style.boxShadow = "";
+                }, 1500);
+            } else {
+                aiInsightDiv.style.border = "1px dashed #2af59870";
+                aiInsightDiv.style.background = "#0c1622";
+            }
+        }, 800);
+    }
+
+    // 监听普通/病变切换
+    normalBtn.addEventListener("click", () => {
+        if(currentCase === "normal") return;
+        currentCase = "normal";
+        updateCaseUI();
+        setActiveButton();
+        // 切换后重置分析结果面板为未分析状态（清除加载样式）
+        riskPercentSpan.innerText = "0%";
+        riskFillDiv.style.width = "0%";
+        aiInsightDiv.innerHTML = `<i class="fas fa-microchip"></i> 待启动智能筛查 (当前已切换正常案例)`;
+        confidenceInfoSpan.innerHTML = `切换病例后需重新运行AI分析以获得精准量化结果`;
+        const resultAreaDiv = document.getElementById("resultArea");
+        resultAreaDiv.style.boxShadow = "";
+        aiInsightDiv.style.border = "1px dashed #2af59870";
+        aiInsightDiv.style.background = "#0c1622";
+    });
+    
+    lesionBtn.addEventListener("click", () => {
+        if(currentCase === "lesion") return;
+        currentCase = "lesion";
+        updateCaseUI();
+        setActiveButton();
+        riskPercentSpan.innerText = "0%";
+        riskFillDiv.style.width = "0%";
+        aiInsightDiv.innerHTML = `<i class="fas fa-microchip"></i> 待启动智能筛查 (早期病变病例待评估)`;
+        confidenceInfoSpan.innerHTML = `高风险病例需AI实时分析，请点击“启动AI多模态智能筛查”`;
+        const resultAreaDiv = document.getElementById("resultArea");
+        resultAreaDiv.style.boxShadow = "";
+        aiInsightDiv.style.border = "1px dashed #2af59870";
+        aiInsightDiv.style.background = "#0c1622";
+    });
+
+    // AI分析按钮
+    analyzeBtn.addEventListener("click", () => {
+        runAIAnalysis();
+    });
+
+    // 初始化加载正常案例
+    updateCaseUI();
+    setActiveButton();
+    // 默认显示一个欢迎提示，但不自动分析，符合预期让用户主动点击
+    aiInsightDiv.innerHTML = `<i class="fas fa-robot"></i> 点击「启动AI多模态智能筛查」获得多模态融合诊断结果，辅助临床决策。`;
+    confidenceInfoSpan.innerHTML = `就绪 | 多模态Transformer架构 | 早筛精度达94.7%`;
+    riskPercentSpan.innerText = "0%";
+    riskFillDiv.style.width = "0%";
+
+    // 额外增加鼠标悬停动画+科技感提示
+    const analyzeIcon = analyzeBtn.querySelector('i');
+    analyzeBtn.addEventListener('mouseenter', () => {
+        analyzeBtn.style.transform = "scale(1.01)";
+        analyzeBtn.style.boxShadow = "0 0 18px #2af598";
+    });
+    analyzeBtn.addEventListener('mouseleave', () => {
+        analyzeBtn.style.transform = "";
+        analyzeBtn.style.boxShadow = "0 0 12px rgba(42,245,152,0.5)";
+    });
+</script>
+</body>
+</html>

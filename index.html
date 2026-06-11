@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RBOS·全息决策生态 | 哈工大·未来无人系统定义者</title>
+    <!-- 字体与图标库 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #000000;
+            overflow-x: hidden;
+            color: #fff;
+            height: 100vh;
+        }
+
+        /* 动态全息网格背景 */
+        #hologrid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background: radial-gradient(circle at 20% 30%, #00101c, #000000);
+            opacity: 0.9;
+        }
+        canvas#gridCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 主容器 */
+        .dashboard {
+            position: relative;
+            z-index: 20;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.2rem 1.8rem;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        /* 头部全息投影效果 */
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            background: rgba(0, 20, 30, 0.4);
+            border-radius: 3rem;
+            padding: 0.5rem 1.5rem;
+            margin-bottom: 1.2rem;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0,255,255,0.2);
+        }
+        .title-glow h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(145deg, #fff, #3eff9e, #00d4ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+        .status-ring {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* 核心指标全息圆环 */
+        .metric-ring {
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+        canvas.ringCanvas {
+            width: 80px;
+            height: 80px;
+            position: absolute;
+        }
+        .ring-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1rem;
+            font-weight: 800;
+            color: #3eff9e;
+            text-shadow: 0 0 5px #0f0;
+        }
+
+        /* 两列布局 */
+        .content-split {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 1.5rem;
+            flex: 1;
+            min-height: 0;
+        }
+        @media (max-width: 1100px) {
+            .content-split { grid-template-columns: 1fr; gap: 1rem; }
+            .dashboard { height: auto; }
+        }
+
+        /* 左侧：全息沙盘 + 集群动态 */
+        .holo-stage {
+            background: rgba(0, 10, 18, 0.55);
+            backdrop-filter: blur(12px);
+            border-radius: 2rem;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            padding: 1rem;
+            box-shadow: 0 0 30px rgba(0,255,200,0.15);
+        }
+        .canvas-container {
+            position: relative;
+            border-radius: 1.2rem;
+            overflow: hidden;
+        }
+        canvas#swarmCanvas {
+            width: 100%;
+            background: radial-gradient(ellipse at 30% 40%, #021a24, #000000);
+            display: block;
+            border-radius: 1.2rem;
+            cursor: pointer;
+        }
+        .legend-holo {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 10px;
+            font-size: 0.7rem;
+            color: #ccf;
+        }
+
+        /* 右侧控制中枢 超能按钮 */
+        .control-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.9rem;
+        }
+        .holo-btn {
+            background: rgba(0, 30, 50, 0.7);
+            border: 1px solid #2effaa;
+            border-radius: 2.5rem;
+            padding: 0.8rem 0;
+            font-weight: 700;
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #eef;
+            font-size: 0.85rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .holo-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(46, 255, 170, 0.4), transparent);
+            transition: left 0.6s;
+        }
+        .holo-btn:hover::before { left: 100%; }
+        .holo-btn:active { transform: scale(0.96); box-shadow: 0 0 20px #2effaa; }
+        .api-btn-special {
+            background: linear-gradient(125deg, #005c6e, #002b36);
+            border-color: #ffd966;
+        }
+
+        /* 动态事件流 (非文字视觉为主) */
+        .event-visual {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 1.5rem;
+            padding: 0.8rem;
+            backdrop-filter: blur(8px);
+            border: 1px solid #3eff9e60;
+            min-height: 180px;
+            position: relative;
+            overflow: hidden;
+        }
+        .energy-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #00ffc3, #3eff9e, #00ffc3);
+            animation: waveMove 2s infinite linear;
+        }
+        @keyframes waveMove { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .log-stream {
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #8effdd;
+            height: 120px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        /* 全局光晕脉冲 */
+        .global-pulse {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+            background: radial-gradient(circle, rgba(46,255,170,0.2) 0%, rgba(0,0,0,0) 80%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-thumb { background: #3eff9e; border-radius: 10px; }
+    </style>
+</head>
+<body>
+<div id="hologrid"><canvas id="gridCanvas"></canvas></div>
+<div class="global-pulse" id="globalPulse"></div>
+
+<div class="dashboard">
+    <!-- HUD头部 -->
+    <div class="hud-header">
+        <div class="title-glow">
+            <h1><i class="fas fa-microchip"></i> RBOS · 全息决策生态 <span style="font-size: 0.8rem;">| 哈工大未来无人系统实验室</span></h1>
+        </div>
+        <div class="status-ring">
+            <div class="metric-ring"><canvas id="humanityRing" width="80" height="80"></canvas><div class="ring-value" id="humanityValue">98%</div></div>
+            <div class="metric-ring"><canvas id="rescueRing" width="80" height="80"></canvas><div class="ring-value" id="rescueValue">84%</div></div>
+        </div>
+    </div>
+
+    <div class="content-split">
+        <!-- 左侧全息沙盘集群模拟 -->
+        <div class="holo-stage">
+            <div class="canvas-container">
+                <canvas id="swarmCanvas" width="800" height="480" style="width:100%; height:auto; aspect-ratio:800/480;"></canvas>
+            </div>
+            <div class="legend-holo">
+                <span><i class="fas fa-circle" style="color:#3eff9e;"></i> 智能体</span>
+                <span><i class="fas fa-bolt" style="color:#ffaa33;"></i> 任务中</span>
+                <span><i class="fas fa-waveform"></i> 动态协作链路</span>
+                <span><i class="fas fa-hand-holding-heart" style="color:#ff66aa;"></i> 人道救援模式</span>
+            </div>
+        </div>
+
+        <!-- 右侧决策中枢 -->
+        <div class="control-zone">
+            <div class="button-grid">
+                <button class="holo-btn" id="btnActivateEco"><i class="fas fa-leaf"></i> 激活生态共振</button>
+                <button class="holo-btn" id="btnGlobalDispatch"><i class="fas fa-globe-asia"></i> 全球协同API</button>
+                <button class="holo-btn" id="btnDisasterRelief"><i class="fas fa-hand-holding-heart"></i> 人道救援推演</button>
+                <button class="holo-btn api-btn-special" id="btnLogisticsBoost"><i class="fas fa-truck-fast"></i> 零饥饿物流网</button>
+                <button class="holo-btn" id="btnSwarmHeal"><i class="fas fa-heartbeat"></i> 集群自愈脉冲</button>
+                <button class="holo-btn" id="btnFutureVision"><i class="fas fa-chart-line"></i> 全息预知决策</button>
+            </div>
+            <!-- 视觉事件流（代替纯文字） -->
+            <div class="event-visual">
+                <div style="display: flex; gap: 10px; align-items:center;"><i class="fas fa-charging-station"></i> <span id="liveIndicator">生态波动 · 待机</span></div>
+                <div class="log-stream" id="visualStream">
+                    <div style="color:#3eff9e;">⚡ RBOS 全息引擎已启动</div>
+                    <div>🌍 全球灾害响应网络就绪</div>
+                </div>
+                <div class="energy-wave"></div>
+            </div>
+            <!-- 实时数值仪表（玻璃） -->
+            <div style="display: flex; gap: 12px; justify-content: space-between; background: rgba(0,0,0,0.4); border-radius: 2rem; padding: 0.6rem 1rem;">
+                <div><i class="fas fa-robot"></i> 集群规模: <strong id="fleetNum">24</strong> 单元</div>
+                <div><i class="fas fa-microchip"></i> 决策熵值: <strong id="entropyVal">0.07</strong></div>
+                <div><i class="fas fa-chart-simple"></i> 使命指数: <strong id="missionIdx">97</strong>%</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- 超视觉全息无人集群系统 ----------
+        const canvas = document.getElementById('swarmCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = 800, height = 480;
+        canvas.width = width; canvas.height = height;
+
+        // 智能体数据 (24个)
+        let agents = [];
+        const AGENT_COUNT = 24;
+        const centerX = width/2, centerY = height/2;
+        
+        // 连线边缘动态索引
+        let edges = [];
+        // 全局特效参数
+        let pulseIntensity = 0;
+        let missionMode = "peace"; // peace, rescue, logistics
+        let globalGlow = 0;
+        let humanityScore = 98;    // 人类福祉指数
+        let rescueScore = 84;
+        let fleetSize = 24;
+        
+        // 环状canvas指标
+        function drawRing(canvasId, value, color1, color2) {
+            const ringCanvas = document.getElementById(canvasId);
+            if(!ringCanvas) return;
+            const rctx = ringCanvas.getContext('2d');
+            const w = 80, h = 80;
+            ringCanvas.width = w; ringCanvas.height = h;
+            rctx.clearRect(0,0,w,h);
+            const startAngle = -0.5 * Math.PI;
+            const endAngle = startAngle + (value / 100) * 2 * Math.PI;
+            rctx.beginPath();
+            rctx.arc(40,40,32, startAngle, endAngle);
+            rctx.strokeStyle = `linear-gradient(135deg, ${color1}, ${color2})`;
+            rctx.lineWidth = 8;
+            rctx.stroke();
+            // 背景环
+            rctx.beginPath();
+            rctx.arc(40,40,32, 0, 2*Math.PI);
+            rctx.strokeStyle = "#2effaa30";
+            rctx.lineWidth = 4;
+            rctx.stroke();
+        }
+        function updateHumanityRing(val) { drawRing('humanityRing', val, '#3eff9e', '#00ccff'); document.getElementById('humanityValue').innerText = val+'%'; }
+        function updateRescueRing(val) { drawRing('rescueRing', val, '#ffaa66', '#ff5566'); document.getElementById('rescueValue').innerText = val+'%'; }
+        
+        // 初始化智能体位置 (螺旋+动态)
+        function initAgents() {
+            agents = [];
+            for(let i=0;i<AGENT_COUNT;i++) {
+                let angle = (i / AGENT_COUNT) * Math.PI * 2;
+                let rad = 110 + (i%3)*18;
+                let x = centerX + Math.cos(angle + i*0.3) * rad * (i%2?0.9:1.1);
+                let y = centerY + Math.sin(angle*1.2 + i*0.2) * (rad-20);
+                agents.push({
+                    id: i,
+                    x: x, y: y,
+                    vx: (Math.random()-0.5)*0.3,
+                    vy: (Math.random()-0.5)*0.3,
+                    status: Math.random()>0.7 ? 'busy' : 'active', // active/busy/rescue
+                    label: `U-${i}`,
+                    pulse: 0
+                });
+            }
+            // 增加中心决策核心
+            agents.push({ id: 99, x: centerX, y: centerY-8, status: 'core', label: 'RBOS', pulse: 0, vx:0, vy:0 });
+            // 生成动态边 (邻近连接)
+            edges = [];
+            for(let i=0;i<agents.length-1;i++) {
+                for(let j=i+1;j<agents.length;j++) {
+                    let dx = agents[i].x - agents[j].x;
+                    let dy = agents[i].y - agents[j].y;
+                    let dist = Math.hypot(dx,dy);
+                    if(dist < 140 && Math.random()>0.6) edges.push([i,j]);
+                }
+            }
+        }
+        
+        // 绘制全息场景
+        let frame = 0;
+        function drawSwarm() {
+            if(!ctx) return;
+            ctx.clearRect(0,0,width,height);
+            // 绘制全息网格底板
+            ctx.globalAlpha = 0.3;
+            for(let i=0;i<30;i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i*20);
+                ctx.lineTo(width, i*20);
+                ctx.strokeStyle = '#3eff9e';
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(i*30,0);
+                ctx.lineTo(i*30,height);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            // 流动光点连线
+            for(let e of edges) {
+                let a = agents[e[0]], b = agents[e[1]];
+                if(!a || !b) continue;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = `rgba(46, 255, 170, ${0.3+Math.sin(Date.now()*0.003+e[0])*0.2})`;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                // 流动粒子
+                let t = (Date.now() * 0.005 + e[0]) % 1;
+                let mx = a.x + (b.x - a.x)*t;
+                let my = a.y + (b.y - a.y)*t;
+                ctx.beginPath();
+                ctx.arc(mx, my, 2, 0, 2*Math.PI);
+                ctx.fillStyle = '#ffff88';
+                ctx.fill();
+            }
+            // 绘制智能体
+            for(let ag of agents) {
+                let radius = (ag.id === 99) ? 14 : 8;
+                let color = '#3eff9e';
+                if(ag.status === 'busy') color = '#ffaa44';
+                if(ag.status === 'rescue') color = '#ff66aa';
+                if(ag.id === 99) color = '#00ffff';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = color;
+                ctx.beginPath();
+                ctx.arc(ag.x, ag.y, radius, 0, 2*Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(ag.x, ag.y, radius-2, 0, 2*Math.PI);
+                ctx.fillStyle = '#021018';
+                ctx.fill();
+                // 脉冲环 (动态)
+                if(ag.pulse > 0) {
+                    ctx.beginPath();
+                    ctx.arc(ag.x, ag.y, radius+5+ag.pulse*3, 0, 2*Math.PI);
+                    ctx.strokeStyle = `rgba(46,255,170,${0.8-ag.pulse*0.5})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ag.pulse -= 0.05;
+                }
+                ctx.fillStyle = '#ffffffcc';
+                ctx.font = "bold 8px 'Inter'";
+                ctx.fillText(ag.label, ag.x-8, ag.y-10);
+            }
+            ctx.shadowBlur = 0;
+            // 全息光晕特效
+            if(globalGlow > 0) {
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.rect(0,0,width,height);
+                ctx.fillStyle = `rgba(46,255,170,${globalGlow*0.3})`;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                globalGlow *= 0.95;
+            }
+        }
+        
+        // 动画移动 (让集群轻微漂移)
+        function animate() {
+            for(let ag of agents) {
+                if(ag.id === 99) continue;
+                ag.x += ag.vx;
+                ag.y += ag.vy;
+                if(ag.x < 40) ag.x = 40; if(ag.x > width-40) ag.x = width-40;
+                if(ag.y < 40) ag.y = 40; if(ag.y > height-40) ag.y = height-40;
+                // 随机转向
+                if(Math.random()<0.02) { ag.vx += (Math.random()-0.5)*0.3; ag.vy += (Math.random()-0.5)*0.3; let max=1.2; ag.vx=Math.min(max,Math.max(-max,ag.vx)); ag.vy=Math.min(max,Math.max(-max,ag.vy));}
+            }
+            drawSwarm();
+            requestAnimationFrame(animate);
+        }
+        
+        // 刷新视觉流信息（非文字，动态icon+特效）
+        function addVisualEvent(icon, message, color='#3eff9e') {
+            const streamDiv = document.getElementById('visualStream');
+            const entry = document.createElement('div');
+            entry.style.opacity = '0.9';
+            entry.style.margin = '4px 0';
+            entry.innerHTML = `<i class="fas ${icon}" style="color:${color}; margin-right:6px;"></i> <span style="font-family:monospace;">${message}</span>`;
+            streamDiv.prepend(entry);
+            if(streamDiv.children.length > 12) streamDiv.removeChild(streamDiv.lastChild);
+            document.getElementById('liveIndicator').innerHTML = `<i class="fas fa-waveform"></i> ${message.substring(0,30)}`;
+            setTimeout(()=>{if(document.getElementById('liveIndicator')) document.getElementById('liveIndicator').innerHTML = `<i class="fas fa-charging-station"></i> 生态活跃·待命中`;}, 2800);
+        }
+        
+        // 全局脉冲特效
+        function fullPulse() {
+            const pulseDiv = document.getElementById('globalPulse');
+            pulseDiv.style.opacity = '1';
+            setTimeout(()=>{ pulseDiv.style.opacity = '0'; }, 400);
+            globalGlow = 0.9;
+            for(let ag of agents) ag.pulse = 1.2;
+        }
+        
+        // 更新决策指标
+        function updateMissionMetrics(dHumanity, dRescue, dFleet=0, dEntropy=0) {
+            humanityScore = Math.min(100, Math.max(40, humanityScore + dHumanity));
+            rescueScore = Math.min(100, Math.max(30, rescueScore + dRescue));
+            fleetSize = Math.min(36, Math.max(18, fleetSize + dFleet));
+            let entropy = parseFloat(document.getElementById('entropyVal').innerText);
+            entropy = Math.min(0.95, Math.max(0.01, entropy + dEntropy));
+            document.getElementById('entropyVal').innerText = entropy.toFixed(3);
+            document.getElementById('fleetNum').innerText = fleetSize;
+            let missionIdx = Math.floor((humanityScore*0.6 + rescueScore*0.4));
+            document.getElementById('missionIdx').innerText = missionIdx;
+            updateHumanityRing(humanityScore);
+            updateRescueRing(rescueScore);
+        }
+        
+        // 按钮交互: 震撼视觉+价值造福
+        function bindButtons() {
+            const btnActivate = document.getElementById('btnActivateEco');
+            const btnGlobal = document.getElementById('btnGlobalDispatch');
+            const btnRelief = document.getElementById('btnDisasterRelief');
+            const btnLogistics = document.getElementById('btnLogisticsBoost');
+            const btnHeal = document.getElementById('btnSwarmHeal');
+            const btnVision = document.getElementById('btnFutureVision');
+            
+            btnActivate.onclick = () => {
+                fullPulse();
+                for(let a of agents) if(a.id!==99) a.status = 'active';
+                updateMissionMetrics(5, 3, 2, -0.02);
+                addVisualEvent('fa-leaf', '生态共振启动 · 协同效率+32%', '#3eff9e');
+                setTimeout(()=>{for(let a of agents) if(a.id!==99) a.status = 'active';}, 200);
+            };
+            btnGlobal.onclick = () => {
+                fullPulse();
+                addVisualEvent('fa-globe', '全球协同API接入 · 灾害响应网络扩展中', '#00ccff');
+                updateMissionMetrics(4, 7, 0, -0.01);
+                // 模拟获取远程数据
+                setTimeout(()=>{
+                    addVisualEvent('fa-chart-line', '实时数据融合: 覆盖137个地区·物流效率+24%', '#ffaa66');
+                    updateMissionMetrics(2, 2, 1, -0.005);
+                }, 600);
+            };
+            btnRelief.onclick = () => {
+                fullPulse();
+                addVisualEvent('fa-hand-holding-heart', '人道救援推演: 智能派遣12架救援无人机 · 拯救指数飙升', '#ff6688');
+                updateMissionMetrics(9, 12, -1, -0.03);
+                for(let a of agents) if(Math.random()>0.6) a.status = 'rescue';
+                setTimeout(()=>{
+                    for(let a of agents) if(a.status==='rescue') a.status='active';
+                }, 2000);
+            };
+            btnLogistics.onclick = () => {
+                fullPulse();
+                addVisualEvent('fa-truck-fast', '零饥饿物流网 · 粮食分配路径优化，减少碳排28%', '#ffdd88');
+                updateMissionMetrics(7, 5, 3, -0.02);
+                // 视觉特效增加粒子流
+                for(let i=0;i<30;i++) setTimeout(()=>{ let ag = agents[Math.floor(Math.random()*agents.length)]; if(ag) ag.pulse=0.8; }, i*50);
+            };
+            btnHeal.onclick = () => {
+                fullPulse();
+                addVisualEvent('fa-heartbeat', '集群自愈脉冲 · 故障节点重新规划，鲁棒性+42%', '#ff5599');
+                updateMissionMetrics(3, 4, 2, -0.04);
+                for(let a of agents) { a.status = 'active'; a.pulse = 1; }
+            };
+            btnVision.onclick = () => {
+                fullPulse();
+                addVisualEvent('fa-chart-line', '全息预知决策 · 强化学习推演未来120步轨迹，零冲突通过率+67%', '#b0ffef');
+                updateMissionMetrics(2, 3, 1, -0.03);
+                // 闪亮效果所有节点连线高亮
+                let oldStroke = ctx.strokeStyle;
+                drawSwarm();
+            };
+        }
+        
+        // 点击canvas节点演示动态调整
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let mx = (e.clientX - rect.left) * scaleX;
+            let my = (e.clientY - rect.top) * scaleY;
+            let closest = null, minDist=20;
+            for(let ag of agents) {
+                let d = Math.hypot(ag.x - mx, ag.y - my);
+                if(d < minDist) { minDist = d; closest = ag; }
+            }
+            if(closest) {
+                fullPulse();
+                closest.pulse = 1.2;
+                if(closest.status === 'active') closest.status = 'busy';
+                else if(closest.status === 'busy') closest.status = 'rescue';
+                else closest.status = 'active';
+                addVisualEvent('fa-microchip', `单点干预: ${closest.label} 切换模式 · 微观决策流更新`, '#88ffaa');
+                updateMissionMetrics(0.5, 0.5, 0, -0.002);
+            }
+        });
+        
+        // 背景网格动画
+        const gridCanvas = document.getElementById('gridCanvas');
+        const gCtx = gridCanvas.getContext('2d');
+        function resizeGrid() {
+            gridCanvas.width = window.innerWidth;
+            gridCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeGrid);
+        resizeGrid();
+        function drawGrid() {
+            if(!gCtx) return;
+            gCtx.clearRect(0,0,gridCanvas.width,gridCanvas.height);
+            gCtx.strokeStyle = '#3eff9e20';
+            gCtx.lineWidth = 0.5;
+            let step = 50;
+            for(let i=0;i<gridCanvas.width/step;i++) {
+                gCtx.beginPath();
+                gCtx.moveTo(i*step,0);
+                gCtx.lineTo(i*step,gridCanvas.height);
+                gCtx.stroke();
+                gCtx.beginPath();
+                gCtx.moveTo(0,i*step);
+                gCtx.lineTo(gridCanvas.width,i*step);
+                gCtx.stroke();
+            }
+            requestAnimationFrame(drawGrid);
+        }
+        drawGrid();
+        
+        // 初始化所有
+        initAgents();
+        bindButtons();
+        animate();
+        updateHumanityRing(98);
+        updateRescueRing(84);
+        document.getElementById('entropyVal').innerText = '0.07';
+        document.getElementById('fleetNum').innerText = '24';
+        document.getElementById('missionIdx').innerText = '97';
+        // 定时自动增加正能量微调（彰显造福人类）
+        setInterval(()=>{
+            if(Math.random()>0.5) {
+                updateMissionMetrics(0.2, 0.3, 0, -0.001);
+                addVisualEvent('fa-seedling', '自适应优化 · 全球救援覆盖率提升中', '#88ffaa');
+            }
+        }, 7000);
+        // 启动完成特效
+        fullPulse();
+        addVisualEvent('fa-rocket', 'RBOS全息生态上线 · 24h无人决策集群就绪', '#3eff9e');
+    })();
+</script>
+</body>
+</html>

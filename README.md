@@ -1,1 +1,1 @@
-https://yezhiting1.ye
+https://yezhiting1.github.io/ye/
